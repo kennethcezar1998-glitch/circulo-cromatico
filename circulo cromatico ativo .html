@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Wheel Pro - Coolorus UI</title>
+<style>
+  /* ── Reset e Variáveis Visuais (Dark Theme) ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  :root {
+    --bg-body: #141414;
+    --bg-panel: #222222;
+    --bg-box: #181818;
+    --border: #333333;
+    --text-main: #e0e0e0;
+    --text-muted: #888888;
+    --radius: 8px;
+    --radius-sm: 4px;
+    /* Cores dos ícones de harmonia */
+    --icon-bg: #909090;
+    --icon-wedge: #444444;
+    --accent: #00bcff; 
+  }
+
+  body {
+    background: var(--bg-body);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .app-container {
+    width: 440px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+    overflow: hidden;
+    transition: all 0.2s ease-in-out;
+    /* Variáveis dinâmicas para controle do tamanho do círculo */
+    --wheel-size: 300px;
+    --radius-offset: -165px;
+  }
+
+  /* Estado expandido corrigido para não cortar os botões superiores */
+  .app-container.is-fullscreen {
+    --wheel-size: 400px;
+    --radius-offset: -212px; 
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--bg-box);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header-title { font-weight: 700; font-size: 11px; letter-spacing: 0.08em; color: var(--text-muted); text-transform: uppercase; }
+  .header-dots { display: flex; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.red { background: #ff5f56; }
+  .dot.yellow { background: #ffbd2e; }
+  .dot.green { background: #27c93f; }
+
+  /* ── Layout Principal ── */
+  .main-content { display: flex; flex-direction: column; }
+
+  .wheel-section {
+    padding: 30px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    transition: padding 0.2s ease;
+  }
+  
+  /* Aumento estratégico do padding superior no modo tela cheia */
+  .app-container.is-fullscreen .wheel-section {
+    padding: 45px 10px 25px 10px;
+  }
+
+  .wheel-wrapper {
+    position: relative;
+    width: var(--wheel-size);
+    height: var(--wheel-size);
+    transition: width 0.2s ease, height 0.2s ease;
+  }
+
+  #colorCanvas {
+    display: block;
+    cursor: crosshair;
+    touch-action: none;
+    border-radius: 50%;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── Botões em Arco Dinâmicos ── */
+  .arc-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 24px; height: 24px;
+    margin-top: -12px; margin-left: -12px;
+    border-radius: 50%;
+    background: var(--icon-bg);
+    border: 2px solid #2a2a2a;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.2s;
+    transform: translate(-50%, -50%) rotate(var(--ang)) translateY(var(--radius-offset)) rotate(calc(-1 * var(--ang)));
+  }
+  .arc-btn:hover { filter: brightness(1.15); transform: translate(-50%, -50%) rotate(var(--ang)) translateY(var(--radius-offset)) rotate(calc(-1 * var(--ang))) scale(1.1); }
+  .arc-btn.active { border-color: #ffffff; box-shadow: 0 0 8px rgba(255,255,255,0.4); }
+
+  .icon-livre { background: var(--icon-bg); }
+  .icon-mono  { background: conic-gradient(from -15deg, var(--icon-wedge) 0 30deg, var(--icon-bg) 30deg); }
+  .icon-ana   { background: conic-gradient(from -45deg, var(--icon-wedge) 0 30deg, var(--icon-bg) 30deg 60deg, var(--icon-wedge) 60deg 90deg, var(--icon-bg) 90deg); }
+  .icon-comp  { background: conic-gradient(from -15deg, var(--icon-wedge) 0 30deg, var(--icon-bg) 30deg 180deg, var(--icon-wedge) 180deg 210deg, var(--icon-bg) 210deg); }
+  .icon-split { background: conic-gradient(from -15deg, var(--icon-wedge) 0 30deg, var(--icon-bg) 30deg 135deg, var(--icon-wedge) 135deg 165deg, var(--icon-bg) 165deg 195deg, var(--icon-wedge) 195deg 225deg, var(--icon-bg) 225deg); }
+  .icon-tri   { background: conic-gradient(from -15deg, var(--icon-wedge) 0 30deg, var(--icon-bg) 30deg 120deg, var(--icon-wedge) 120deg 150deg, var(--icon-bg) 150deg 240deg, var(--icon-wedge) 240deg 270deg, var(--icon-bg) 270deg); }
+  .icon-tetra { background: conic-gradient(from -15deg, var(--icon-wedge) 0 30deg, var(--icon-bg) 30deg 90deg, var(--icon-wedge) 90deg 120deg, var(--icon-bg) 120deg 180deg, var(--icon-wedge) 180deg 210deg, var(--icon-bg) 210deg 270deg, var(--icon-wedge) 270deg 300deg, var(--icon-bg) 300deg); }
+
+  .mode-toggle-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 28px; height: 28px;
+    margin-top: -14px; margin-left: -14px;
+    border-radius: 50%;
+    border: 2px solid #2a2a2a;
+    background: var(--icon-bg);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    cursor: pointer;
+    transition: transform 0.1s;
+    transform: translate(-50%, -50%) rotate(var(--ang)) translateY(var(--radius-offset)) rotate(calc(-1 * var(--ang)));
+  }
+  .mode-toggle-btn:hover { filter: brightness(1.15); transform: translate(-50%, -50%) rotate(var(--ang)) translateY(var(--radius-offset)) rotate(calc(-1 * var(--ang))) scale(1.1); }
+  .mode-toggle-btn.active { border-color: #fff; box-shadow: 0 0 8px rgba(255,255,255,0.4); }
+
+  /* ── Botão de Tela Cheia Customizado ── */
+  .fullscreen-toggle-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid #444;
+    background: #ffffff;
+    color: #1a1a1a;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 15;
+    transition: transform 0.1s ease, background-color 0.2s;
+  }
+  .fullscreen-toggle-btn:hover { transform: scale(1.1); background: #e5e5e5; }
+  .fullscreen-toggle-btn:active { transform: scale(0.95); }
+
+  /* ── Cores Principal / Secundária (estilo Photoshop) ── */
+  .fgbg-widget {
+    position: absolute;
+    bottom: 12px;
+    right: 52px;
+    width: 56px;
+    height: 56px;
+    z-index: 15;
+  }
+  .fgbg-swatch {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 1px #000, 0 2px 6px rgba(0,0,0,0.6);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .fgbg-swatch:hover { transform: scale(1.06); }
+  .fgbg-swatch:active { transform: scale(0.95); }
+  .fgbg-front { top: 0; left: 0; z-index: 2; }
+  .fgbg-back  { top: 20px; left: 20px; z-index: 1; }
+  .fgbg-swap {
+    position: absolute; top: -2px; right: -2px;
+    width: 20px; height: 20px; padding: 0;
+    background: transparent; border: none; color: #cfcfcf;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: color 0.2s, transform 0.1s;
+  }
+  .fgbg-swap:hover { color: #ffffff; transform: scale(1.1); }
+  .fgbg-reset {
+    position: absolute; bottom: 0; left: 0;
+    width: 16px; height: 16px; padding: 0;
+    background: transparent; border: none; cursor: pointer;
+  }
+  .fgbg-reset::before, .fgbg-reset::after {
+    content: ''; position: absolute; width: 9px; height: 9px;
+    border: 1px solid #cfcfcf;
+  }
+  .fgbg-reset::after  { top: 1px; left: 1px; background: #000; z-index: 2; }
+  .fgbg-reset::before { top: 5px; left: 5px; background: #fff; z-index: 1; }
+  .fgbg-reset:hover::before, .fgbg-reset:hover::after { border-color: #fff; }
+
+  /* ── Campos editáveis (contenteditable) ── */
+  [contenteditable="true"] {
+    padding: 1px 4px;
+    border: 1px dashed #4a4a4a;
+    border-radius: 3px;
+    cursor: text;
+    user-select: text;
+    -webkit-user-select: text;
+    outline: none;
+    transition: border-color 0.15s, background-color 0.15s;
+  }
+  [contenteditable="true"]:hover { border-color: #777; }
+  /* Quando o usuário clica para editar */
+  [contenteditable="true"]:focus {
+    outline: none;
+    border: 1px solid var(--accent);
+    background-color: #0d0d0d;
+  }
+  .slider-val[contenteditable="true"] { display: inline-block; min-width: 30px; text-align: right; }
+
+  /* ── Aviso de cópia (substitui o alert) ── */
+  .copy-toast {
+    position: fixed; left: 50%; bottom: 24px;
+    transform: translate(-50%, 20px);
+    background: #2b2b2b; color: var(--text-main);
+    border: 1px solid #444; border-radius: 6px;
+    padding: 8px 12px; font-size: 11px; font-weight: bold;
+    font-family: 'Courier New', Courier, monospace;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 100;
+  }
+  .copy-toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .copy-toast-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.3); }
+
+  .icon-rgb-ryb::after {
+    content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 14px; height: 14px; background: var(--bg-panel); border-radius: 50%;
+  }
+  .icon-sun::after {
+    content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 8px; height: 8px; background: #ddd; border-radius: 50%;
+    box-shadow: 0 -7px 0 -1.5px #ddd, 0 7px 0 -1.5px #ddd, 7px 0 0 -1.5px #ddd, -7px 0 0 -1.5px #ddd, 
+                5px 5px 0 -1.5px #ddd, -5px -5px 0 -1.5px #ddd, 5px -5px 0 -1.5px #ddd, -5px 5px 0 -1.5px #ddd;
+  }
+
+  .divider { height: 1px; background: var(--border); width: 100%; }
+
+  /* ── Painel de Saída e Valores ── */
+  .output-section { padding: 15px 20px; display: flex; flex-direction: column; gap: 12px; }
+  
+  .swatch-row { display: flex; gap: 12px; height: 45px; }
+  .main-swatch { width: 50px; border-radius: var(--radius); border: 2px solid rgba(255,255,255,0.1); cursor: pointer; transition: transform 0.1s;}
+  .main-swatch:active { transform: scale(0.95); }
+  .harm-swatches { display: flex; gap: 6px; flex: 1; }
+  .harm-sw { flex: 1; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: transform 0.1s; }
+  .harm-sw:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+  
+  .values-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .val-box {
+    background: var(--bg-box); border: 1px solid var(--border);
+    padding: 8px; border-radius: var(--radius-sm);
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    cursor: pointer; transition: border-color 0.2s;
+  }
+  .val-box:hover { border-color: #666; }
+  .val-label { font-size: 9px; color: var(--text-muted); font-weight: bold; }
+  .val-text { font-family: 'Courier New', Courier, monospace; font-size: 11px; color: var(--text-main); font-weight: bold;}
+
+  /* ── Painel de Abas de Paleta ── */
+  .tabs-container {
+    background: var(--bg-box);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .tabs-header {
+    display: flex;
+    overflow-x: auto;
+    background: #111;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  /* Design da Scrollbar Customizada */
+  .tabs-header::-webkit-scrollbar { 
+    height: 12px; 
+  }
+  .tabs-header::-webkit-scrollbar-track { 
+    background: linear-gradient(to bottom, #111111 0%, #111111 38%, var(--accent) 44%, var(--accent) 56%, #111111 62%, #111111 100%);
+    border-radius: 20px;
+    border: 1px solid #222222;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,0.7);
+  }
+  .tabs-header::-webkit-scrollbar-thumb { 
+    background: #3a3a3a linear-gradient(to bottom, #4a4a4a 0%, #252525 100%);
+    border-radius: 20px;
+    border: 2px solid #111111;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 2px 4px rgba(0,0,0,0.5);
+    cursor: pointer;
+  }
+  .tabs-header::-webkit-scrollbar-thumb:hover { background: #4a4a4a linear-gradient(to bottom, #5a5a5a 0%, #2f2f2f 100%); }
+  
+  .tab-btn {
+    background: transparent; border: none; color: var(--text-muted);
+    padding: 8px 12px; font-size: 9px; font-weight: bold; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap; border-right: 1px solid var(--border);
+  }
+  .tab-btn:hover { background: #1a1a1a; color: #ccc; }
+
+  /* ── Menu de abas arrastável ── */
+  .elemento-arrastavel {
+    cursor: grab;          /* Mão aberta: indica que o item pode ser agarrado */
+    user-select: none;     /* Evita selecionar texto ao arrastar */
+    -webkit-user-select: none;
+  }
+  .elemento-arrastavel:active,
+  .elemento-arrastavel.dragging {
+    cursor: grabbing;      /* Mão fechada enquanto o botão está pressionado */
+  }
+  .elemento-arrastavel .tab-btn { cursor: inherit; }
+
+  /* Gradiente nas bordas indicando continuidade (não cobre a barra inferior) */
+  .tabs-scroll-wrapper { position: relative; }
+  .tabs-scroll-wrapper::before,
+  .tabs-scroll-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 12px; /* altura da barra de rolagem */
+    width: 36px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 3;
+  }
+  .tabs-scroll-wrapper::before { left: 0;  background: linear-gradient(to right, #111111 15%, rgba(17,17,17,0)); }
+  .tabs-scroll-wrapper::after  { right: 0; background: linear-gradient(to left,  #111111 15%, rgba(17,17,17,0)); }
+  .tabs-scroll-wrapper.fade-left::before,
+  .tabs-scroll-wrapper.fade-right::after { opacity: 1; }
+  .tab-btn.active { background: var(--bg-box); color: #fff; box-shadow: inset 0 2px 0 var(--accent); }
+
+  .tab-content { padding: 10px; }
+  .palette-9-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 4px;
+    height: 35px;
+  }
+  .p9-swatch {
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .p9-swatch:hover { transform: scale(1.15); z-index: 10; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+
+  /* ── Sugestão de Volume do Leomk ── */
+  .theory-section {
+    background: var(--bg-box); padding: 15px; border-radius: var(--radius);
+    border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px;
+  }
+  .theory-title {
+    font-size: 10px; color: var(--text-muted); font-weight: bold;
+    text-transform: uppercase; letter-spacing: 0.05em; text-align: center; margin-bottom: 2px;
+  }
+  .light-shadow-palette { display: flex; gap: 4px; }
+  .ls-swatch-container { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .ls-hex {
+    text-align: center; font-family: 'Courier New', Courier, monospace;
+    font-size: 10px; font-weight: bold; color: var(--text-main);
+    background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 3px;
+    padding: 2px 0; cursor: pointer; transition: border-color 0.2s;
+  }
+  .ls-hex[contenteditable="true"] { padding: 2px 0; border-style: dashed; border-color: #4a4a4a; }
+  .ls-hex[contenteditable="true"]:focus { border-style: solid; border-color: var(--accent); }
+  .ls-hex:hover { border-color: #666; }
+  .ls-swatch { height: 36px; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.15); cursor: pointer; transition: transform 0.1s; }
+  .ls-swatch:hover { transform: scale(1.05); z-index: 10;}
+  .ls-label { text-align: center; font-size: 8px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; }
+
+  .theory-insight-box {
+    font-size: 10px; line-height: 1.4; color: var(--text-main); text-align: center; 
+    margin-top: 4px; font-style: italic; background: rgba(0,0,0,0.2); 
+    padding: 6px 10px; border-radius: 4px; border: 1px dashed var(--border);
+  }
+
+  /* ── Sliders Reescritos ── */
+  .sliders-section { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .sliders-container { display: flex; flex-direction: column; gap: 8px; }
+  
+  .slider-row { display: flex; align-items: center; gap: 8px; }
+  .slider-label { font-size: 11px; font-weight: bold; color: var(--text-muted); width: 12px; text-align: right; }
+  .slider-track { flex: 1; height: 20px; position: relative; border: 1px solid #000; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); }
+  .slider-bg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+  
+  input[type=range] {
+    position: absolute; top: -1px; left: 0; width: 100%; height: 22px;
+    -webkit-appearance: none; background: transparent; cursor: ew-resize; z-index: 2; outline: none; margin: 0;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 6px; height: 24px; border-radius: 1px;
+    background: transparent; border: 2px solid #fff; 
+    box-shadow: 0 0 3px rgba(0,0,0,0.8), inset 0 0 2px rgba(0,0,0,0.5);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 6px; height: 24px; border-radius: 1px;
+    background: transparent; border: 2px solid #fff; 
+    box-shadow: 0 0 3px rgba(0,0,0,0.8), inset 0 0 2px rgba(0,0,0,0.5);
+  }
+  
+  .slider-val-box {
+    background: #2a2a2a; border: 1px solid #111; border-radius: 3px;
+    padding: 3px 6px; min-width: 36px; text-align: right;
+  }
+  .slider-val { font-family: 'Courier New', Courier, monospace; font-size: 11px; color: var(--text-main); font-weight: bold; }
+
+  .sidebar { display: none; }
+  .slider-mode-bar {
+    display: flex; align-items: center; gap: 6px; margin-top: 5px;
+    font-size: 10px; font-weight: bold; color: var(--text-muted);
+  }
+  .slider-mode-btn {
+    background: transparent; border: 1px solid transparent; color: var(--text-muted);
+    cursor: pointer; padding: 3px 6px; font-size: 10px; font-weight: bold; transition: all 0.2s;
+  }
+  .slider-mode-btn:hover { color: #fff; }
+  .slider-mode-btn.active { color: #fff; border-color: #555; background: #333; border-radius: 3px; }
+
+  /* ── CLASSES COMPLEMENTARES PARA O MODO TELA CHEIA ── */
+  .app-container.is-fullscreen .header,
+  .app-container.is-fullscreen .divider,
+  .app-container.is-fullscreen .values-grid,
+  .app-container.is-fullscreen .tabs-container,
+  .app-container.is-fullscreen .theory-section,
+  .app-container.is-fullscreen .sliders-section {
+    display: none !important;
+  }
+  
+  .app-container.is-fullscreen .output-section {
+    padding-bottom: 25px;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="app-container" id="appContainer">
+  <div class="header">
+    <div class="header-dots">
+      <div class="dot red"></div>
+      <div class="dot yellow"></div>
+      <div class="dot green"></div>
+    </div>
+    <div class="header-title" id="uiModeTitle">RYB Color Wheel Pro</div>
+    <div style="width: 42px;"></div>
+  </div>
+
+  <div class="main-content">
+    <div class="wheel-section">
+      <div class="wheel-wrapper">
+        <canvas id="colorCanvas" width="300" height="300"></canvas>
+        
+        <div class="arc-btn icon-livre active" style="--ang: 10deg;" data-rule="none" title="Esquema Livre"></div>
+        <div class="arc-btn icon-mono" style="--ang: 20deg;" data-rule="mono" title="Esquema Monocromático"></div>
+        <div class="arc-btn icon-ana" style="--ang: 30deg;" data-rule="analogous" title="Esquema de Análogas"></div>
+        <div class="arc-btn icon-comp" style="--ang: 40deg;" data-rule="complementary" title="Esquema Complementar"></div>
+        <div class="arc-btn icon-split" style="--ang: 50deg;" data-rule="split" title="Esquema Meio-Complementar"></div>
+        <div class="arc-btn icon-tri" style="--ang: 60deg;" data-rule="triadic" title="Esquema de Tríade"></div>
+        <div class="arc-btn icon-tetra" style="--ang: 70deg;" data-rule="tetradic" title="Esquema de Tétrade"></div>
+
+        <div class="mode-toggle-btn icon-rgb-ryb" id="btnModeToggle" style="--ang: -135deg;" title="Alternar RGB/RYB"></div>
+        <div class="mode-toggle-btn icon-sun" id="btnLuma" style="--ang: -160deg;" title="Travar Luminosidade"></div>
+      </div>
+      
+      <!-- Cores Principal / Secundária (estilo Photoshop) -->
+      <div class="fgbg-widget">
+        <div class="fgbg-swatch fgbg-back" id="bgSwatch"></div>
+        <div class="fgbg-swatch fgbg-front" id="fgSwatch"></div>
+        <button class="fgbg-swap" id="btnSwapFgBg" title="Trocar cor principal e secundária">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 9a7 7 0 0 1 10-4"/><path d="M13 2l3 3-3 3"/>
+            <path d="M19 15a7 7 0 0 1-10 4"/><path d="M11 22l-3-3 3-3"/>
+          </svg>
+        </button>
+        <button class="fgbg-reset" id="btnResetFgBg" title="Cores padrão (preto e branco)"></button>
+      </div>
+
+      <!-- Botão de Alternância de Tela Cheia -->
+      <button class="fullscreen-toggle-btn" id="btnFullscreen" title="Tela Cheia">
+        <svg id="fullscreenIcon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="output-section">
+      <div class="swatch-row">
+        <div class="main-swatch" id="mainSwatch" onclick="copyToClipboard('valHexHidden')" title="Copiar Cor"></div>
+        <div class="harm-swatches" id="harmonyContainer"></div>
+      </div>
+      <span id="valHexHidden" style="display:none;"></span>
+      
+      <div class="values-grid">
+        <div class="val-box" onclick="if(!event.target.isContentEditable) copyToClipboard('valHex')" title="Clique no valor para editar · clique fora dele para copiar"><span class="val-label">HEX</span><span class="val-text" id="valHex" contenteditable="true" spellcheck="false">#000</span></div>
+        <div class="val-box" onclick="if(!event.target.isContentEditable) copyToClipboard('valRgb')" title="Clique no valor para editar · clique fora dele para copiar"><span class="val-label">RGB</span><span class="val-text" id="valRgb" contenteditable="true" spellcheck="false">0,0,0</span></div>
+        <div class="val-box" onclick="if(!event.target.isContentEditable) copyToClipboard('valHsv')" title="Clique no valor para editar · clique fora dele para copiar"><span class="val-label">HSV</span><span class="val-text" id="valHsv" contenteditable="true" spellcheck="false">0,0,0</span></div>
+        <div class="val-box" onclick="if(!event.target.isContentEditable) copyToClipboard('valCmyk')" title="Clique no valor para editar · clique fora dele para copiar"><span class="val-label">CMYK</span><span class="val-text" id="valCmyk" contenteditable="true" spellcheck="false">0,0,0,0</span></div>
+      </div>
+
+      <div class="tabs-container">
+        <div class="tabs-scroll-wrapper" id="tabsWrapper">
+        <div class="tabs-header elemento-arrastavel" id="tabsHeader">
+          <button class="tab-btn active" data-tab="monochromatic">Monocromático</button>
+          <button class="tab-btn" data-tab="shades">Tons</button>
+          <button class="tab-btn" data-tab="compound">Composto</button>
+          <button class="tab-btn" data-tab="square">Quadrado</button>
+          <button class="tab-btn" data-tab="triad">Tríade</button>
+          <button class="tab-btn" data-tab="split">Meio-Complementar</button>
+          <button class="tab-btn" data-tab="complementary">Complementar</button>
+          <button class="tab-btn" data-tab="analogous">Análogas</button>
+        </div>
+        </div>
+        <div class="tab-content">
+          <div class="palette-9-grid" id="palette9Grid"></div>
+        </div>
+      </div>
+
+      <div class="theory-section">
+        <div class="theory-title">Sugestão de Volume (Teoria da Criatividade)</div>
+        <div class="light-shadow-palette" id="lsPalette"></div>
+        <div class="theory-insight-box" id="theoryInsight">Selecione uma cor para gerar o diagnóstico com base na Teoria da Cor.</div>
+      </div>
+    </div>
+
+    <div class="sliders-section">
+      <div class="sliders-container" id="slidersContainer"></div>
+      <div class="slider-mode-bar">
+        <span>MODO:</span>
+        <button class="slider-mode-btn" data-mode="RGB">RGB</button>
+        <button class="slider-mode-btn active" data-mode="HSV">HSV</button>
+        <button class="slider-mode-btn" data-mode="LAB">LAB</button>
+        <button class="slider-mode-btn" data-mode="CMYK">CMYK</button>
+        <button class="slider-mode-btn" data-mode="B/W">B/W</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="copy-toast" id="copyToast">
+  <div class="copy-toast-swatch" id="copyToastSwatch"></div>
+  <span id="copyToastText"></span>
+</div>
+
+<script>
+/** ── CONVERSORES DE COR MATEMÁTICOS ── */
+function rybToHsv(rybAngle) {
+  let r = ((rybAngle % 360) + 360) % 360;
+  const stops = [ [0,0], [60,30], [120,60], [180,120], [240,240], [300,300], [360,360] ];
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (r >= stops[i][0] && r <= stops[i+1][0]) {
+      let t = (r - stops[i][0]) / (stops[i+1][0] - stops[i][0]);
+      return stops[i][1] + t * (stops[i+1][1] - stops[i][1]);
+    }
+  }
+  return 0;
+}
+
+function hsvToRyb(hsvAngle) {
+  let h = ((hsvAngle % 360) + 360) % 360;
+  const stops = [ [0,0], [30,60], [60,120], [120,180], [240,240], [300,300], [360,360] ];
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (h >= stops[i][0] && h <= stops[i+1][0]) {
+      let t = (h - stops[i][0]) / (stops[i+1][0] - stops[i][0]);
+      return stops[i][1] + t * (stops[i+1][1] - stops[i][1]);
+    }
+  }
+  return 0;
+}
+
+function hsv2rgb(h, s, v) {
+  let f = (n, k = (n + h / 60) % 6) => v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+  return [Math.round(f(5) * 255), Math.round(f(3) * 255), Math.round(f(1) * 255)];
+}
+
+function rgb2hsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  let max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let d = max - min;
+  let h = 0, s = max === 0 ? 0 : d / max, v = max;
+  if (max !== min) {
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h: h * 360, s: s, v: v };
+}
+
+function rgb2hex(r, g, b) {
+  return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase();
+}
+
+function rgb2cmyk(r, g, b) {
+  let c = 1 - (r / 255), m = 1 - (g / 255), y = 1 - (b / 255);
+  let k = Math.min(c, m, y);
+  if (k === 1) return [0, 0, 0, 100];
+  return [
+    Math.round(((c - k) / (1 - k)) * 100),
+    Math.round(((m - k) / (1 - k)) * 100),
+    Math.round(((y - k) / (1 - k)) * 100),
+    Math.round(k * 100)
+  ];
+}
+
+function cmyk2rgb(c, m, y, k) {
+  c /= 100; m /= 100; y /= 100; k /= 100;
+  let r = 255 * (1 - c) * (1 - k);
+  let g = 255 * (1 - m) * (1 - k);
+  let b_ = 255 * (1 - y) * (1 - k);
+  return [Math.round(r), Math.round(g), Math.round(b_)];
+}
+
+function rgb2lab(r, g, b) {
+  let r_l = r / 255, g_l = g / 255, b_l = b / 255;
+  r_l = (r_l > 0.04045) ? Math.pow((r_l + 0.055) / 1.055, 2.4) : r_l / 12.92;
+  g_l = (g_l > 0.04045) ? Math.pow((g_l + 0.055) / 1.055, 2.4) : g_l / 12.92;
+  b_l = (b_l > 0.04045) ? Math.pow((b_l + 0.055) / 1.055, 2.4) : b_l / 12.92;
+
+  let x = (r_l * 0.4124 + g_l * 0.3576 + b_l * 0.1805) * 100;
+  let y = (r_l * 0.2126 + g_l * 0.7152 + b_l * 0.0722) * 100;
+  let z = (r_l * 0.0193 + g_l * 0.1192 + b_l * 0.9505) * 100;
+
+  x /= 95.047; y /= 100.000; z /= 108.883;
+
+  x = (x > 0.008856) ? Math.pow(x, 1/3) : (7.787 * x) + (16/116);
+  y = (y > 0.008856) ? Math.pow(y, 1/3) : (7.787 * y) + (16/116);
+  z = (z > 0.008856) ? Math.pow(z, 1/3) : (7.787 * z) + (16/116);
+
+  let L = (116 * y) - 16;
+  let A = 500 * (x - y);
+  let B = 200 * (y - z);
+  return [Math.max(0, Math.min(100, L)), Math.max(-128, Math.min(127, A)), Math.max(-128, Math.min(127, B))];
+}
+
+function lab2rgb(l, a, b) {
+  let y = (l + 16) / 116;
+  let x = a / 500 + y;
+  let z = y - b / 200;
+
+  x = 95.047 * ((Math.pow(x, 3) > 0.008856) ? Math.pow(x, 3) : (x - 16/116) / 7.787);
+  y = 100.000 * ((Math.pow(y, 3) > 0.008856) ? Math.pow(y, 3) : (y - 16/116) / 7.787);
+  z = 108.883 * ((Math.pow(z, 3) > 0.008856) ? Math.pow(z, 3) : (z - 16/116) / 7.787);
+
+  x /= 100; y /= 100; z /= 100;
+
+  let r = x * 3.2406 + y * -1.5372 + z * -0.4986;
+  let g = x * -0.9689 + y * 1.8758 + z * 0.0415;
+  let b_ = x * 0.0557 + y * -0.2040 + z * 1.0570;
+
+  r = (r > 0.0031308) ? (1.055 * Math.pow(r, 1/2.4) - 0.055) : 12.92 * r;
+  g = (g > 0.0031308) ? (1.055 * Math.pow(g, 1/2.4) - 0.055) : 12.92 * g;
+  b_ = (b_ > 0.0031308) ? (1.055 * Math.pow(b_, 1/2.4) - 0.055) : 12.92 * b_;
+
+  return [Math.max(0, Math.min(255, Math.round(r * 255))), Math.max(0, Math.min(255, Math.round(g * 255))), Math.max(0, Math.min(255, Math.round(b_ * 255)))];
+}
+
+/** ── ESTADO GLOBAL E OPÇÕES ── */
+let state = {
+  hue: 0, 
+  sat: 1.0,
+  val: 1.0,
+  rule: 'none',
+  colorMode: 'RYB', 
+  sliderMode: 'HSV', 
+  activePaletteTab: 'monochromatic',
+  isDraggingRing: false,
+  isDraggingTri: false,
+  lumaLock: false,
+  isFullscreen: false
+};
+
+/* ── CORREÇÃO DE SINTAXE: Limpeza completa da falha do miolo do CMYK ── */
+const SLIDER_CONFIGS = {
+  'RGB': [{id:'r', lbl:'R', max:255}, {id:'g', lbl:'G', max:255}, {id:'b', lbl:'B', max:255}],
+  'HSV': [{id:'h', lbl:'H', max:359}, {id:'s', lbl:'S', max:100}, {id:'v', lbl:'V', max:100}],
+  'LAB': [{id:'l', lbl:'L', max:100}, {id:'a', lbl:'A', min:-128, max:127}, {id:'b_lab', lbl:'B', min:-128, max:127}],
+  'CMYK': [{id:'c', lbl:'C', max:100}, {id:'m', lbl:'M', max:100}, {id:'y', lbl:'Y', max:100}, {id:'k', lbl:'K', max:100}],
+  'B/W': [{id:'bw', lbl:'K', max:100}] 
+};
+
+/** ── CONSTRUÇÃO DOS SLIDERS ── */
+function buildSliders() {
+  const container = document.getElementById('slidersContainer');
+  if(!container) return;
+  container.innerHTML = '';
+  const config = SLIDER_CONFIGS[state.sliderMode];
+  
+  config.forEach(cfg => {
+    container.innerHTML += `
+    <div class="slider-row">
+      <span class="slider-label">${cfg.lbl}</span>
+      <div class="slider-track">
+        <div class="slider-bg" id="bg_${cfg.id}"></div>
+        <input type="range" id="sl_${cfg.id}" data-id="${cfg.id}" min="${cfg.min||0}" max="${cfg.max}" value="0">
+      </div>
+      <div class="slider-val-box">
+        <span class="slider-val" id="val_${cfg.id}" contenteditable="true" spellcheck="false" title="Clique para digitar um valor">0</span>
+      </div>
+    </div>`;
+  });
+
+  config.forEach(cfg => {
+    const slider = document.getElementById(`sl_${cfg.id}`);
+    slider.addEventListener('input', handleSliderChange);
+    // Valor digitado na caixa ao lado do slider
+    bindEditable(document.getElementById(`val_${cfg.id}`), (text) => {
+      const n = parseNumbers(text);
+      if (n.length !== 1) return false;
+      slider.value = clamp(n[0], cfg.min || 0, cfg.max);
+      handleSliderChange();
+    });
+  });
+}
+
+function handleSliderChange(e) {
+  let mode = state.sliderMode;
+  if (mode === 'RGB') {
+    let r = Number(document.getElementById('sl_r').value);
+    let g = Number(document.getElementById('sl_g').value);
+    let b = Number(document.getElementById('sl_b').value);
+    let hsv = rgb2hsv(r,g,b);
+    state.hue = state.colorMode === 'RYB' ? hsvToRyb(hsv.h) : hsv.h;
+    state.sat = hsv.s; state.val = hsv.v;
+  } else if (mode === 'HSV') {
+    state.hue = Number(document.getElementById('sl_h').value);
+    state.sat = Number(document.getElementById('sl_s').value) / 100;
+    state.val = Number(document.getElementById('sl_v').value) / 100;
+  } else if (mode === 'LAB') {
+    let l = Number(document.getElementById('sl_l').value);
+    let a = Number(document.getElementById('sl_a').value);
+    let b_lab = Number(document.getElementById('sl_b_lab').value);
+    let rgb = lab2rgb(l,a,b_lab);
+    let hsv = rgb2hsv(...rgb);
+    state.hue = state.colorMode === 'RYB' ? hsvToRyb(hsv.h) : hsv.h;
+    state.sat = hsv.s; state.val = hsv.v;
+  } else if (mode === 'CMYK') {
+    let c = Number(document.getElementById('sl_c').value);
+    let m = Number(document.getElementById('sl_m').value);
+    let y = Number(document.getElementById('sl_y').value);
+    let k = Number(document.getElementById('sl_k').value);
+    let rgb = cmyk2rgb(c,m,y,k);
+    let hsv = rgb2hsv(...rgb);
+    state.hue = state.colorMode === 'RYB' ? hsvToRyb(hsv.h) : hsv.h;
+    state.sat = hsv.s; state.val = hsv.v;
+  } else if (mode === 'B/W') {
+    let bw = Number(document.getElementById('sl_bw').value);
+    state.sat = 0; state.val = 1 - (bw/100);
+  }
+  updateAll();
+}
+
+/** ── CANVAS SETUP ── */
+const canvas = document.getElementById('colorCanvas');
+const ctx = canvas.getContext('2d');
+
+function getLayout() {
+  let w = canvas.width;
+  return {
+    W: w,
+    H: w,
+    CX: w / 2,
+    CY: w / 2,
+    R_OUTER: w * (140 / 300),
+    R_INNER: w * (108 / 300)
+  };
+}
+
+function getRenderHue(angle) {
+  return state.colorMode === 'RYB' ? rybToHsv(angle) : angle;
+}
+
+function getTriangleVerts(angle) {
+  let layout = getLayout();
+  let rad = (angle - 90) * Math.PI / 180;
+  let r = layout.R_INNER - 6;
+  return [
+    { x: layout.CX + r * Math.cos(rad), y: layout.CY + r * Math.sin(rad) },
+    { x: layout.CX + r * Math.cos(rad + (120 * Math.PI / 180)), y: layout.CY + r * Math.sin(rad + (120 * Math.PI / 180)) },
+    { x: layout.CX + r * Math.cos(rad - (120 * Math.PI / 180)), y: layout.CY + r * Math.sin(rad - (120 * Math.PI / 180)) }
+  ];
+}
+
+function getHarmonyAngles(baseHue, rule) {
+  switch (rule) {
+    case 'complementary': return [baseHue, (baseHue + 180) % 360];
+    case 'analogous': return [(baseHue - 30 + 360) % 360, baseHue, (baseHue + 30) % 360];
+    case 'split': return [baseHue, (baseHue + 150) % 360, (baseHue + 210) % 360];
+    case 'triadic': return [baseHue, (baseHue + 120) % 360, (baseHue + 240) % 360];
+    case 'tetradic': return [baseHue, (baseHue + 90) % 360, (baseHue + 180) % 360, (baseHue + 270) % 360];
+    case 'mono': return [baseHue];
+    default: return [baseHue];
+  }
+}
+
+function drawWheel() {
+  let layout = getLayout();
+  ctx.clearRect(0, 0, layout.W, layout.H);
+
+  for (let i = 0; i < 360; i += 1) {
+    let radStart = (i - 90) * Math.PI / 180;
+    let radEnd = (i + 1.5 - 90) * Math.PI / 180;
+    let renderHue = getRenderHue(i);
+    let rgb = hsv2rgb(renderHue, 1, 1);
+    
+    ctx.beginPath();
+    ctx.arc(layout.CX, layout.CY, layout.R_OUTER, radStart, radEnd);
+    ctx.arc(layout.CX, layout.CY, layout.R_INNER, radEnd, radStart, true);
+    ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    ctx.fill();
+  }
+
+  let verts = getTriangleVerts(state.hue);
+  let baseColor = hsv2rgb(getRenderHue(state.hue), 1, 1);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(verts[0].x, verts[0].y);
+  ctx.lineTo(verts[1].x, verts[1].y);
+  ctx.lineTo(verts[2].x, verts[2].y);
+  ctx.closePath();
+  ctx.clip();
+
+  ctx.fillStyle = `rgb(${baseColor[0]},${baseColor[1]},${baseColor[2]})`;
+  ctx.fillRect(0, 0, layout.W, layout.H);
+
+  let gradW = ctx.createLinearGradient(verts[1].x, verts[1].y, (verts[0].x + verts[2].x)/2, (verts[0].y + verts[2].y)/2);
+  gradW.addColorStop(0, "rgba(255,255,255,1)");
+  gradW.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = gradW;
+  ctx.fillRect(0, 0, layout.W, layout.H);
+
+  let gradB = ctx.createLinearGradient(verts[2].x, verts[2].y, (verts[0].x + verts[1].x)/2, (verts[0].y + verts[1].y)/2);
+  gradB.addColorStop(0, "rgba(0,0,0,1)");
+  gradB.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = gradB;
+  ctx.fillRect(0, 0, layout.W, layout.H);
+  ctx.restore();
+
+  let angles = getHarmonyAngles(state.hue, state.rule);
+  let ringCenter = (layout.R_OUTER + layout.R_INNER) / 2;
+  
+  if (angles.length > 1 && state.rule !== 'mono') {
+    ctx.beginPath();
+    angles.forEach((ang, idx) => {
+      let r = (ang - 90) * Math.PI / 180;
+      let px = layout.CX + ringCenter * Math.cos(r);
+      let py = layout.CY + ringCenter * Math.sin(r);
+      if (idx === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    
+    if (['triadic', 'tetradic', 'split'].includes(state.rule)) ctx.closePath();
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  angles.forEach((ang) => {
+    let r = (ang - 90) * Math.PI / 180;
+    let px = layout.CX + ringCenter * Math.cos(r);
+    let py = layout.CY * (1); // 1
+    let rad = (ang - 90) * Math.PI / 180;
+    let targetX = layout.CX + ringCenter * Math.cos(rad);
+    let targetY = layout.CY + ringCenter * Math.sin(rad);
+    let c = hsv2rgb(getRenderHue(ang), 1, 1);
+    
+    ctx.beginPath();
+    ctx.arc(targetX, targetY, ang === state.hue ? 10 : 7, 0, Math.PI * 2);
+    ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+
+  let w0 = state.sat * state.val;
+  let w1 = (1 - state.sat) * state.val;
+  let w2 = 1 - state.val;
+  let cursorX = w0 * verts[0].x + w1 * verts[1].x + w2 * verts[2].x;
+  let cursorY = w0 * verts[0].y + w1 * verts[1].y + w2 * verts[2].y;
+  let curColor = hsv2rgb(getRenderHue(state.hue), state.sat, state.val);
+  
+  ctx.beginPath();
+  ctx.arc(cursorX, cursorY, 6, 0, Math.PI * 2);
+  ctx.fillStyle = `rgb(${curColor[0]},${curColor[1]},${curColor[2]})`;
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+}
+
+/** ── TABELA DE 9 CORES POR HARMONIA ── */
+function generate9ColorPalette() {
+  const container = document.getElementById('palette9Grid');
+  if(!container) return;
+  container.innerHTML = '';
+  
+  let h = state.hue, s = state.sat, v = state.val;
+  let colors = [];
+
+  switch(state.activePaletteTab) {
+    case 'monochromatic':
+      colors = [
+        {h:h, s:1, v:1}, {h:h, s:0.8, v:0.9}, {h:h, s:0.6, v:0.9},
+        {h:h, s:0.4, v:0.9}, {h:h, s:0.2, v:1}, {h:h, s:s, v:v}, 
+        {h:h, s:1, v:0.6}, {h:h, s:0.8, v:0.4}, {h:h, s:0.6, v:0.2}
+      ];
+      break;
+    case 'shades':
+      for(let i=1; i<=9; i++) {
+        colors.push({h: h, s: s, v: 1 - (i*0.1)});
+      }
+      break;
+    case 'compound':
+      colors = [
+        {h:h, s:s, v:v}, {h:(h+30)%360, s:s*0.8, v:v}, {h:(h-30+360)%360, s:s*0.8, v:v},
+        {h:(h+150)%360, s:s, v:v}, {h:(h+180)%360, s:s, v:v}, {h:(h+210)%360, s:s, v:v},
+        {h:h, s:s*0.5, v:Math.max(0,v-0.3)}, {h:(h+150)%360, s:s*0.5, v:Math.max(0,v-0.3)}, {h:(h+180)%360, s:s*0.5, v:Math.max(0,v-0.3)}
+      ];
+      break;
+    case 'square':
+      colors = [
+        {h:h, s:s, v:v}, {h:h, s:s*0.5, v:Math.max(0,v-0.3)}, {h:h, s:1, v:Math.min(1,v+0.3)},
+        {h:(h+90)%360, s:s, v:v}, {h:(h+90)%360, s:s*0.5, v:Math.max(0,v-0.3)},
+        {h:(h+180)%360, s:s, v:v}, {h:(h+180)%360, s:s*0.5, v:Math.max(0,v-0.3)},
+        {h:(h+270)%360, s:s, v:v}, {h:(h+270)%360, s:s*0.5, v:Math.max(0,v-0.3)}
+      ];
+      break;
+    case 'triad':
+      colors = [
+        {h:h, s:s, v:v}, {h:h, s:s*0.6, v:Math.max(0,v-0.2)}, {h:h, s:1, v:Math.min(1,v+0.2)},
+        {h:(h+120)%360, s:s, v:v}, {h:(h+120)%360, s:s*0.6, v:Math.max(0,v-0.2)}, {h:(h+120)%360, s:1, v:Math.min(1,v+0.2)},
+        {h:(h+240)%360, s:s, v:v}, {h:(h+240)%360, s:s*0.6, v:Math.max(0,v-0.2)}, {h:(h+240)%360, s:1, v:Math.min(1,v+0.2)}
+      ];
+      break;
+    case 'split':
+      colors = [
+        {h:h, s:s, v:v}, {h:h, s:s*0.5, v:Math.max(0,v-0.4)}, {h:h, s:s*0.8, v:Math.min(1,v+0.2)},
+        {h:(h+150)%360, s:s, v:v}, {h:(h+150)%360, s:s*0.5, v:Math.max(0,v-0.4)}, {h:(h+150)%360, s:s*0.8, v:Math.min(1,v+0.2)},
+        {h:(h+210)%360, s:s, v:v}, {h:(h+210)%360, s:s*0.5, v:Math.max(0,v-0.4)}, {h:(h+210)%360, s:s*0.8, v:Math.min(1,v+0.2)}
+      ];
+      break;
+    case 'complementary':
+      colors = [
+        {h:h, s:1, v:1}, {h:h, s:s, v:v}, {h:h, s:s*0.7, v:Math.max(0,v-0.2)}, {h:h, s:s*0.4, v:Math.max(0,v-0.4)}, {h:h, s:s*0.2, v:Math.max(0,v-0.6)},
+        {h:(h+180)%360, s:1, v:1}, {h:(h+180)%360, s:s, v:v}, {h:(h+180)%360, s:s*0.7, v:Math.max(0,v-0.2)}, {h:(h+180)%360, s:s*0.4, v:Math.max(0,v-0.4)}
+      ];
+      break;
+    case 'analogous':
+      colors = [
+        {h:(h-60+360)%360, s:s, v:v}, {h:(h-45+360)%360, s:s, v:v}, {h:(h-30+360)%360, s:s, v:v},
+        {h:(h-15+360)%360, s:s, v:v}, {h:h, s:s, v:v}, {h:(h+15)%360, s:s, v:v},
+        {h:(h+30)%360, s:s, v:v}, {h:(h+45)%360, s:s, v:v}, {h:(h+60)%360, s:s, v:v}
+      ];
+      break;
+  }
+
+  colors.forEach(c => {
+    let rgb = hsv2rgb(getRenderHue(c.h), c.s, c.v);
+    let hex = rgb2hex(...rgb);
+    container.innerHTML += `<div class="p9-swatch" style="background:${hex};" title="Copiar ${hex}" onclick="copyHex('${hex}')"></div>`;
+  });
+}
+
+/** ── PALETA LUZ E SOMBRA (LEOMK) ── */
+function shiftHueTowards(currentHue, targetHue, weight) {
+  let diff = (targetHue - currentHue + 360) % 360;
+  if (diff > 180) diff -= 360; 
+  return (currentHue + (diff * weight) + 360) % 360;
+}
+
+function generateLightShadowPalette() {
+  const container = document.getElementById('lsPalette');
+  if(!container) return;
+  container.innerHTML = '';
+  let h = state.hue, s = state.sat, v = state.val;
+  
+  const TARGET_SHADOW = 240, TARGET_LIGHT = 60, TARGET_COMPLEMENTARY = (h + 180) % 360;
+  let palette = [
+    { label: "Brilho", h: shiftHueTowards(h, TARGET_LIGHT, 0.3), s: Math.max(0, s * 0.3), v: Math.min(1, v + 0.4) },
+    { label: "Luz", h: shiftHueTowards(h, TARGET_LIGHT, 0.15), s: Math.max(0, s * 0.7), v: Math.min(1, v + 0.2) },
+    { label: "Base", h: h, s: s, v: v },
+    { label: "Sombra", h: shiftHueTowards(h, TARGET_SHADOW, 0.2), s: Math.min(1, s + 0.3), v: Math.max(0.1, v - 0.35) },
+    { label: "Oclusão", h: shiftHueTowards(h, TARGET_COMPLEMENTARY, 0.4), s: Math.max(0, s * 0.5), v: Math.max(0.05, v - 0.65) }
+  ];
+
+  palette.forEach(item => {
+    let rgb = hsv2rgb(getRenderHue(item.h), item.s, item.v);
+    let hex = rgb2hex(rgb[0], rgb[1], rgb[2]);
+    let wrapper = document.createElement('div');
+    wrapper.className = 'ls-swatch-container';
+    let swatch = document.createElement('div');
+    swatch.className = 'ls-swatch';
+    swatch.style.backgroundColor = hex;
+    let currentHex = hex;
+    swatch.onclick = () => copyHex(currentHex);
+    swatch.title = "Copiar " + hex;
+    let lbl = document.createElement('div');
+    lbl.className = 'ls-label'; lbl.innerText = item.label;
+    let hexLbl = document.createElement('div');
+    hexLbl.className = 'ls-hex'; hexLbl.innerText = hex;
+    hexLbl.contentEditable = 'true';
+    hexLbl.spellcheck = false;
+    hexLbl.title = "Clique para editar este hexadecimal";
+    // Edição manual: ajusta só esta caixa (a cor do círculo não muda)
+    bindEditable(hexLbl, (text) => {
+      const newHex = parseHex(text);
+      if (!newHex) return false;
+      currentHex = newHex;
+      hexLbl.innerText = newHex;
+      swatch.style.backgroundColor = newHex;
+      swatch.title = "Copiar " + newHex;
+    }, () => { hexLbl.innerText = currentHex; });
+    wrapper.appendChild(swatch); wrapper.appendChild(lbl); wrapper.appendChild(hexLbl);
+    container.appendChild(wrapper);
+  });
+
+  const insightBox = document.getElementById('theoryInsight');
+  if(insightBox) {
+    if (h >= 15 && h <= 45) {
+      insightBox.innerHTML = "<strong>💡 Insight Corkit (Pág. 56):</strong> O Marrom e o Laranja compartilham a <em>mesma Matiz e Saturação</em>! A única diferença real está no Valor/Tom (Marrom é apenas laranja escuro).";
+    } else if (h >= 210 && h <= 270) {
+      insightBox.innerHTML = "<strong>💡 Insight Corkit (Pág. 87):</strong> A matiz Azul em saturação extrema é <em>intrinsecamente muito escura</em> (próxima ao preto). Adicionar azul na área de oclusão mantém o peso tonal de forma estética!";
+    } else if (h >= 46 && h <= 80) {
+      insightBox.innerHTML = "<strong>💡 Insight Corkit (Pág. 87):</strong> A matiz Amarela em saturação máxima é <em>intrinsecamente muito clara</em> (quase branca). Leve isso em consideração ao calcular degradês para não quebrar o tom.";
+    } else {
+      insightBox.innerHTML = "<strong>💡 Insight Corkit (Pág. 44):</strong> Toda cor é um 'liquidificador' de 4 propriedades fundamentais: <em>Valor, Matiz, Saturação e Mancha</em>. Mude de tom ou matiz em vez de apenas escurecer para manter sua arte 'viva'!";
+    }
+  }
+}
+
+/** ── UPDATES GERAIS DA UI ── */
+function updateSlidersUI() {
+  let hsv = getRenderHue(state.hue);
+  let rgb = hsv2rgb(hsv, state.sat, state.val);
+  let cmyk = rgb2cmyk(...rgb);
+  let lab = rgb2lab(...rgb);
+  let mode = state.sliderMode;
+
+  if (mode === 'RGB' && document.getElementById('sl_r')) {
+    document.getElementById('sl_r').value = rgb[0]; document.getElementById('val_r').innerText = rgb[0];
+    document.getElementById('sl_g').value = rgb[1]; document.getElementById('val_g').innerText = rgb[1];
+    document.getElementById('sl_b').value = rgb[2]; document.getElementById('val_b').innerText = rgb[2];
+    document.getElementById('bg_r').style.background = `linear-gradient(to right, rgb(0,${rgb[1]},${rgb[2]}), rgb(255,${rgb[1]},${rgb[2]}))`;
+    document.getElementById('bg_g').style.background = `linear-gradient(to right, rgb(${rgb[0]},0,${rgb[2]}), rgb(${rgb[0]},255,${rgb[2]}))`;
+    document.getElementById('bg_b').style.background = `linear-gradient(to right, rgb(${rgb[0]},${rgb[1]},0), rgb(${rgb[0]},${rgb[1]},255))`;
+  } else if (mode === 'HSV' && document.getElementById('sl_h')) {
+    document.getElementById('sl_h').value = state.hue; document.getElementById('val_h').innerText = Math.round(state.hue) + "°";
+    document.getElementById('sl_s').value = state.sat * 100; document.getElementById('val_s').innerText = Math.round(state.sat * 100) + "%";
+    document.getElementById('sl_v').value = state.val * 100; document.getElementById('val_v').innerText = Math.round(state.val * 100) + "%";
+    let hBg = []; for(let i=0; i<=360; i+=30) hBg.push(rgb2hex(...hsv2rgb(getRenderHue(i), 1, 1)));
+    document.getElementById('bg_h').style.background = `linear-gradient(to right, ${hBg.join(',')})`;
+    document.getElementById('bg_s').style.background = `linear-gradient(to right, ${rgb2hex(...hsv2rgb(hsv, 0, state.val))}, ${rgb2hex(...hsv2rgb(hsv, 1, state.val))})`;
+    document.getElementById('bg_v').style.background = `linear-gradient(to right, #000000, ${rgb2hex(...hsv2rgb(hsv, state.sat, 1))})`;
+  } else if (mode === 'LAB' && document.getElementById('sl_l')) {
+    document.getElementById('sl_l').value = lab[0]; document.getElementById('val_l').innerText = Math.round(lab[0]);
+    document.getElementById('sl_a').value = lab[1]; document.getElementById('val_a').innerText = Math.round(lab[1]);
+    document.getElementById('sl_b_lab').value = lab[2]; document.getElementById('val_b_lab').innerText = Math.round(lab[2]);
+    let bgL=[], bgA=[], bgB=[];
+    for(let i=0; i<=10; i++) {
+        bgL.push(rgb2hex(...lab2rgb(i*10, lab[1], lab[2])));
+        bgA.push(rgb2hex(...lab2rgb(lab[0], -128 + (i*25.5), lab[2])));
+        bgB.push(rgb2hex(...lab2rgb(lab[0], lab[1], -128 + (i*25.5))));
+    }
+    document.getElementById('bg_l').style.background = `linear-gradient(to right, ${bgL.join(',')})`;
+    document.getElementById('bg_a').style.background = `linear-gradient(to right, ${bgA.join(',')})`;
+    document.getElementById('bg_b_lab').style.background = `linear-gradient(to right, ${bgB.join(',')})`;
+  } else if (mode === 'CMYK' && document.getElementById('sl_c')) {
+    document.getElementById('sl_c').value = cmyk[0]; document.getElementById('val_c').innerText = cmyk[0] + "%";
+    document.getElementById('sl_m').value = cmyk[1]; document.getElementById('val_m').innerText = cmyk[1] + "%";
+    document.getElementById('sl_y').value = cmyk[2]; document.getElementById('val_y').innerText = cmyk[2] + "%";
+    document.getElementById('sl_k').value = cmyk[3]; document.getElementById('val_k').innerText = cmyk[3] + "%";
+    document.getElementById('bg_c').style.background = `linear-gradient(to right, ${rgb2hex(...cmyk2rgb(0,cmyk[1],cmyk[2],cmyk[3]))}, ${rgb2hex(...cmyk2rgb(100,cmyk[1],cmyk[2],cmyk[3]))})`;
+    document.getElementById('bg_m').style.background = `linear-gradient(to right, ${rgb2hex(...cmyk2rgb(cmyk[0],0,cmyk[2],cmyk[3]))}, ${rgb2hex(...cmyk2rgb(cmyk[0],100,cmyk[2],cmyk[3]))})`;
+    document.getElementById('bg_y').style.background = `linear-gradient(to right, ${rgb2hex(...cmyk2rgb(cmyk[0],cmyk[1],0,cmyk[3]))}, ${rgb2hex(...cmyk2rgb(cmyk[0],cmyk[1],100,cmyk[3]))})`;
+    document.getElementById('bg_k').style.background = `linear-gradient(to right, ${rgb2hex(...cmyk2rgb(cmyk[0],cmyk[1],cmyk[2],0))}, ${rgb2hex(...cmyk2rgb(cmyk[0],cmyk[1],cmyk[2],100))})`;
+  } else if (mode === 'B/W' && document.getElementById('sl_bw')) {
+    let bw_val = Math.round((1 - state.val)*100);
+    document.getElementById('sl_bw').value = bw_val; document.getElementById('val_bw').innerText = bw_val + "%";
+    document.getElementById('bg_bw').style.background = `linear-gradient(to right, #ffffff, #000000)`;
+  }
+  
+  // Atualiza as caixas textuais numéricas
+  setFieldText('valHex', rgb2hex(...rgb));
+  setFieldText('valRgb', `${rgb[0]},${rgb[1]},${rgb[2]}`);
+  setFieldText('valHsv', `${Math.round(state.hue)}°,${Math.round(state.sat*100)}%,${Math.round(state.val*100)}%`);
+  setFieldText('valCmyk', `${cmyk[0]},${cmyk[1]},${cmyk[2]},${cmyk[3]}`);
+}
+
+function updateUIButtons() {
+  const toggleBtn = document.getElementById('btnModeToggle');
+  const title = document.getElementById('uiModeTitle');
+  if(state.colorMode === 'RYB'){
+    toggleBtn.style.background = 'conic-gradient(#0000ff 0 120deg, #ffff00 120deg 240deg, #ff0000 240deg 360deg)';
+    toggleBtn.title = "Modo Atual: RYB Clássico (Clique para RGB)";
+    title.innerText = "RYB Color Wheel Pro";
+  } else {
+    toggleBtn.style.background = 'conic-gradient(#0000ff 0 120deg, #00ff00 120deg 240deg, #ff0000 240deg 360deg)';
+    toggleBtn.title = "Modo Atual: RGB Luz (Clique para RYB)";
+    title.innerText = "RGB Color Wheel Pro";
+  }
+}
+
+function updateAll() {
+  drawWheel();
+  updateUIButtons();
+  
+  let hsv = getRenderHue(state.hue);
+  let rgb = hsv2rgb(hsv, state.sat, state.val);
+  let hex = rgb2hex(rgb[0], rgb[1], rgb[2]);
+
+  document.getElementById('mainSwatch').style.backgroundColor = hex;
+  document.getElementById('valHexHidden').innerText = hex;
+  
+  updateSlidersUI();
+
+  let harmContainer = document.getElementById('harmonyContainer');
+  harmContainer.innerHTML = '';
+  let angles = getHarmonyAngles(state.hue, state.rule);
+  
+  if (state.rule === 'mono') {
+    let sVals = [Math.max(0, state.sat - 0.4), state.sat, Math.min(1, state.sat + 0.4)];
+    let vVals = [Math.max(0.2, state.val - 0.3), state.val, Math.min(1, state.val + 0.3)];
+    sVals.forEach((s, i) => {
+      let div = document.createElement('div'); div.className = 'harm-sw';
+      let swHex = rgb2hex(...hsv2rgb(getRenderHue(state.hue), sVals[i], vVals[i]));
+      div.style.backgroundColor = swHex;
+      div.title = "Copiar " + swHex;
+      div.onclick = () => copyHex(swHex);
+      harmContainer.appendChild(div);
+    });
+  } else {
+    angles.forEach(ang => {
+      if(ang === state.hue && angles.length > 1) return;
+      let div = document.createElement('div'); div.className = 'harm-sw';
+      let swHex = rgb2hex(...hsv2rgb(getRenderHue(ang), state.sat, state.val));
+      div.style.backgroundColor = swHex;
+      div.title = "Copiar " + swHex;
+      div.onclick = () => copyHex(swHex);
+      harmContainer.appendChild(div);
+    });
+  }
+
+  updateFgBgUI(hex);
+  
+  generate9ColorPalette(); 
+  generateLightShadowPalette();
+}
+
+/** ── EVENT LISTENERS (MOUSE E TOUCH) ── */
+function getMousePos(e) {
+  let rect = canvas.getBoundingClientRect();
+  let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function handleInput(e) {
+  let pos = getMousePos(e);
+  let layout = getLayout();
+  if (state.isDraggingRing) {
+    let angle = Math.atan2(pos.y - layout.CY, pos.x - layout.CX) * 180 / Math.PI + 90;
+    state.hue = (angle + 360) % 360;
+  } else if (state.isDraggingTri) {
+    let v = getTriangleVerts(state.hue);
+    let denom = (v[1].y - v[2].y)*(v[0].x - v[2].x) + (v[2].x - v[1].x)*(v[0].y - v[2].y);
+    let w0 = ((v[1].y - v[2].y)*(pos.x - v[2].x) + (v[2].x - v[1].x)*(pos.y - v[2].y)) / denom;
+    let w1 = ((v[2].y - v[0].y)*(pos.x - v[2].x) + (v[0].x - v[2].x)*(pos.y - v[2].y)) / denom;
+    let w2 = 1 - w0 - w1;
+    
+    w0 = Math.max(0, Math.min(1, w0)); w1 = Math.max(0, Math.min(1, w1)); w2 = Math.max(0, Math.min(1, w2));
+    let sum = w0 + w1 + w2; w0 /= sum; w1 /= sum; w2 /= sum;
+    
+    let val = w0 + w1;
+    let sat = val > 0 ? w0 / val : 0;
+    
+    if(!state.lumaLock) state.val = val; 
+    state.sat = sat; 
+  }
+  if (state.isDraggingRing || state.isDraggingTri) updateAll();
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  let pos = getMousePos(e);
+  let layout = getLayout();
+  let dist = Math.sqrt((pos.x - layout.CX)**2 + (pos.y - layout.CY)**2);
+  if (dist >= layout.R_INNER && dist <= layout.R_OUTER) state.isDraggingRing = true;
+  else if (dist < layout.R_INNER) state.isDraggingTri = true;
+  handleInput(e);
+});
+
+window.addEventListener('mousemove', handleInput);
+window.addEventListener('mouseup', () => { state.isDraggingRing = false; state.isDraggingTri = false; });
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); canvas.dispatchEvent(new MouseEvent('mousedown', {clientX: e.touches[0].clientX, clientY: e.touches[0].clientY})); });
+window.addEventListener('touchmove', handleInput, {passive: false});
+window.addEventListener('touchend', () => { state.isDraggingRing = false; state.isDraggingTri = false; });
+
+// Botões Roda 
+document.querySelectorAll('.arc-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.arc-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    state.rule = e.target.getAttribute('data-rule');
+    updateAll();
+  });
+});
+
+document.getElementById('btnModeToggle').addEventListener('click', () => {
+    state.colorMode = state.colorMode === 'RYB' ? 'RGB' : 'RYB';
+    updateAll();
+});
+document.getElementById('btnLuma').addEventListener('click', (e) => {
+    state.lumaLock = !state.lumaLock;
+    e.target.classList.toggle('active', state.lumaLock);
+});
+
+// Alternador do Modo de Tela Cheia com Redimensionamento Físico de Alta Definição
+document.getElementById('btnFullscreen').addEventListener('click', () => {
+  state.isFullscreen = !state.isFullscreen;
+  const container = document.getElementById('appContainer');
+  const icon = document.getElementById('fullscreenIcon');
+  
+  if (state.isFullscreen) {
+    container.classList.add('is-fullscreen');
+    canvas.width = 400;
+    canvas.height = 400;
+    icon.innerHTML = `<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/>`;
+    document.getElementById('btnFullscreen').title = "Sair da Tela Cheia";
+  } else {
+    container.classList.remove('is-fullscreen');
+    canvas.width = 300;
+    canvas.height = 300;
+    icon.innerHTML = `<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>`;
+    document.getElementById('btnFullscreen').title = "Tela Cheia";
+  }
+  
+  updateAll();
+});
+
+// Aba de Modos (Sliders)
+document.querySelectorAll('.slider-mode-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.slider-mode-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    state.sliderMode = e.target.getAttribute('data-mode');
+    buildSliders();
+    updateAll();
+  });
+});
+
+// Abas (Paletas)
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.activePaletteTab = btn.getAttribute('data-tab');
+    updateAll();
+  });
+});
+
+/** ── CAMPOS EDITÁVEIS ── */
+// Só escreve no campo se o usuário não estiver editando ele agora
+function setFieldText(id, text) {
+  const el = document.getElementById(id);
+  if (el && document.activeElement !== el) el.innerText = text;
+}
+
+function parseNumbers(text) {
+  return (text.match(/-?\d+(\.\d+)?/g) || []).map(Number);
+}
+
+function parseHex(text) {
+  let t = text.trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{3}$/.test(t)) t = t.split('').map(ch => ch + ch).join('');
+  if (!/^[0-9a-fA-F]{6}$/.test(t)) return null;
+  return '#' + t.toUpperCase();
+}
+
+function hexToRgb(hex) {
+  let n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+// Mesma conversão usada pelos sliders RGB/LAB/CMYK
+function applyRgbToState(rgb) {
+  let hsv = rgb2hsv(...rgb);
+  state.hue = state.colorMode === 'RYB' ? hsvToRyb(hsv.h) : hsv.h;
+  state.sat = hsv.s; state.val = hsv.v;
+}
+
+const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+/**
+ * Liga um elemento contenteditable:
+ * Enter confirma · Esc cancela · clicar fora confirma · colar entra como texto puro.
+ * commit(texto) deve retornar false se o valor for inválido.
+ */
+function bindEditable(el, commit, revert) {
+  if (!el || el.dataset.editBound) return;
+  el.dataset.editBound = '1';
+  revert = revert || (() => updateAll());
+
+  el.addEventListener('focus', () => {
+    el.dataset.original = el.innerText;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+  });
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); el.dataset.cancel = '1'; el.blur(); }
+  });
+  el.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    document.execCommand('insertText', false, text.replace(/[\r\n]+/g, ' '));
+  });
+  el.addEventListener('blur', () => {
+    const text = el.innerText.trim();
+    if (el.dataset.cancel) { delete el.dataset.cancel; revert(el); return; }
+    if (text === (el.dataset.original || '').trim()) return;
+    if (commit(text) === false) {
+      showToast("Valor inválido: " + text, null);
+      revert(el);
+    }
+  });
+}
+
+// HEX / RGB / HSV / CMYK
+bindEditable(document.getElementById('valHex'), (text) => {
+  const hex = parseHex(text);
+  if (!hex) return false;
+  applyRgbToState(hexToRgb(hex)); updateAll();
+});
+bindEditable(document.getElementById('valRgb'), (text) => {
+  const n = parseNumbers(text);
+  if (n.length !== 3) return false;
+  applyRgbToState(n.map(x => Math.round(clamp(x, 0, 255)))); updateAll();
+});
+bindEditable(document.getElementById('valHsv'), (text) => {
+  const n = parseNumbers(text);
+  if (n.length !== 3) return false;
+  state.hue = ((n[0] % 360) + 360) % 360;
+  state.sat = clamp(n[1], 0, 100) / 100;
+  state.val = clamp(n[2], 0, 100) / 100;
+  updateAll();
+});
+bindEditable(document.getElementById('valCmyk'), (text) => {
+  const n = parseNumbers(text);
+  if (n.length !== 4) return false;
+  applyRgbToState(cmyk2rgb(...n.map(x => clamp(x, 0, 100)))); updateAll();
+});
+
+/** ── MENU DE ABAS ARRASTÁVEL + GRADIENTE DE CONTINUIDADE ── */
+(function setupDraggableTabs() {
+  const wrapper = document.getElementById('tabsWrapper');
+  const slider = document.getElementById('tabsHeader');
+  let isDown = false, isDragged = false, startX = 0, startScroll = 0;
+
+  function updateFade() {
+    const maxScroll = slider.scrollWidth - slider.clientWidth;
+    const cur = slider.scrollLeft;
+    wrapper.classList.toggle('fade-left', maxScroll > 0 && cur > 5);
+    wrapper.classList.toggle('fade-right', maxScroll > 0 && cur < maxScroll - 5);
+  }
+
+  slider.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    // Clique na barra de rolagem inferior: deixa o navegador cuidar
+    const rect = slider.getBoundingClientRect();
+    if (e.clientY > rect.top + slider.clientHeight) return;
+    isDown = true;
+    isDragged = false;
+    startX = e.clientX;
+    startScroll = slider.scrollLeft;
+    slider.classList.add('dragging');
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    const walk = e.clientX - startX;
+    if (Math.abs(walk) > 5) isDragged = true;
+    slider.scrollLeft = startScroll - walk;
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!isDown) return;
+    isDown = false;
+    slider.classList.remove('dragging');
+  });
+
+  // Evita trocar de aba acidentalmente ao terminar de arrastar
+  slider.addEventListener('click', (e) => {
+    if (isDragged) { e.stopPropagation(); e.preventDefault(); isDragged = false; }
+  }, true);
+
+  slider.addEventListener('scroll', updateFade);
+  window.addEventListener('resize', updateFade);
+  updateFade();
+})();
+
+/** ── CÓPIA AUTOMÁTICA PARA A ÁREA DE TRANSFERÊNCIA ── */
+let toastTimer = null;
+function showToast(text, swatchColor) {
+  const toast = document.getElementById('copyToast');
+  document.getElementById('copyToastText').innerText = text;
+  document.getElementById('copyToastSwatch').style.background = swatchColor || 'transparent';
+  document.getElementById('copyToastSwatch').style.display = swatchColor ? 'block' : 'none';
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1400);
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+function copyText(text, swatchColor) {
+  const onSuccess = () => showToast("Copiado com sucesso: " + text, swatchColor);
+  const onError = (err) => {
+    showToast("Erro ao copiar.", null);
+    if (err) console.error(err);
+  };
+  const tryFallback = (err) => { fallbackCopy(text) ? onSuccess() : onError(err); };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(onSuccess)
+      .catch(tryFallback);
+  } else {
+    tryFallback();
+  }
+}
+
+function copyHex(hex) { copyText(hex, hex); }
+
+function copyToClipboard(elementId) {
+  const text = document.getElementById(elementId).innerText;
+  copyText(text, document.getElementById('valHexHidden').innerText);
+}
+
+/** ── CORES PRINCIPAL / SECUNDÁRIA (ESTILO PHOTOSHOP) ── */
+// A cor principal é sempre a cor ativa do círculo (state). A secundária fica guardada aqui.
+let secondaryColor = { hue: 0, sat: 0, val: 1, mode: 'RYB' };
+
+function storedColorToHex(c) {
+  let h = c.mode === 'RYB' ? rybToHsv(c.hue) : c.hue;
+  return rgb2hex(...hsv2rgb(h, c.sat, c.val));
+}
+
+function hueForCurrentMode(c) {
+  if (c.mode === state.colorMode) return c.hue;
+  return c.mode === 'RYB' ? rybToHsv(c.hue) : hsvToRyb(c.hue);
+}
+
+function updateFgBgUI(fgHex) {
+  const fg = document.getElementById('fgSwatch');
+  const bg = document.getElementById('bgSwatch');
+  if (!fg || !bg) return;
+  let bgHex = storedColorToHex(secondaryColor);
+  fg.style.backgroundColor = fgHex;
+  bg.style.backgroundColor = bgHex;
+  fg.title = "Cor principal " + fgHex + " (clique para copiar)";
+  bg.title = "Cor secundária " + bgHex + " (clique para trocar com a principal)";
+}
+
+function swapFgBg() {
+  let current = { hue: state.hue, sat: state.sat, val: state.val, mode: state.colorMode };
+  state.hue = hueForCurrentMode(secondaryColor);
+  state.sat = secondaryColor.sat;
+  state.val = secondaryColor.val;
+  secondaryColor = current;
+  updateAll();
+}
+
+function resetFgBg() {
+  state.sat = 0; state.val = 0;
+  secondaryColor = { hue: state.hue, sat: 0, val: 1, mode: state.colorMode };
+  updateAll();
+}
+
+document.getElementById('fgSwatch').addEventListener('click', () => copyHex(document.getElementById('valHexHidden').innerText));
+document.getElementById('bgSwatch').addEventListener('click', swapFgBg);
+document.getElementById('btnSwapFgBg').addEventListener('click', swapFgBg);
+document.getElementById('btnResetFgBg').addEventListener('click', resetFgBg);
+
+buildSliders();
+updateAll();
+
+</script>
+</body>
+</html>
