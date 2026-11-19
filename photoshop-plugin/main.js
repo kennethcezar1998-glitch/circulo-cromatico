@@ -292,8 +292,8 @@ function handleSliderChange() {
 /* ════════════════════════════════════════════════════════════════
  *  CANVAS
  * ════════════════════════════════════════════════════════════════ */
-const canvas = $('colorCanvas');
-const ctx = canvas.getContext('2d');
+let canvas = $('colorCanvas');
+let ctx = canvas.getContext('2d');
 let wheelCssSize = 300;   // tamanho do círculo na tela (px CSS)
 let canvasScale = 1;      // px do canvas por px CSS
 
@@ -434,9 +434,48 @@ function dashedPolyline(points, closed, dash, gap) {
   ctx.stroke();
 }
 
+/*
+ * O canvas do UXP guarda todos os comandos de desenho desde que foi criado e
+ * repete a lista inteira a cada repintura do painel. Pintar o fundo por cima
+ * não apaga a lista: a cada cor escolhida ela crescia ~85 comandos, e com o
+ * tempo o Photoshop passava a mostrar o círculo sendo redesenhado (piscando),
+ * mesmo com o plugin parado.
+ * Por isso cada quadro é desenhado num canvas novo (uma cópia vazia do atual),
+ * colocado atrás dele; quando fica pronto, o antigo é removido. A lista nunca
+ * passa de um quadro e um círculo pela metade nunca aparece na tela.
+ */
+let freshCanvasUnsupported = false;
+function beginFreshCanvas() {
+  if (freshCanvasUnsupported) return null;
+  const old = canvas;
+  let fresh = null;
+  try {
+    fresh = old.cloneNode(false); // mesmos atributos e estilo, sem desenho
+    old.parentNode.insertBefore(fresh, old); // fica atrás do antigo até ficar pronto
+    if (fresh.width !== old.width || fresh.height !== old.height) {
+      fresh.setAttribute('width', String(old.width));
+      fresh.setAttribute('height', String(old.height));
+    }
+    const freshCtx = fresh.getContext('2d');
+    if (!freshCtx || fresh.width !== old.width || fresh.height !== old.height) {
+      throw new Error('canvas novo sem contexto ou com tamanho diferente');
+    }
+    canvas = fresh;
+    ctx = freshCtx;
+    return old;
+  } catch (err) {
+    // Se este Photoshop não aceitar, volta a desenhar sempre no mesmo canvas
+    if (fresh && fresh.parentNode) fresh.parentNode.removeChild(fresh);
+    freshCanvasUnsupported = true;
+    console.warn('Troca de canvas indisponível; desenhando no mesmo canvas.', err);
+    return null;
+  }
+}
+
 // Desenha o círculo inteiro (cerca de 85 formas, todas opacas)
 function drawWheel() {
   diagCount('draws');
+  const oldCanvas = beginFreshCanvas();
   const L = getLayout();
   const verts = getTriangleVerts(state.hue);
   const angles = getHarmonyAngles(state.hue, state.rule);
@@ -476,6 +515,9 @@ function drawWheel() {
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 2.5 * L.k;
   ctx.stroke();
+
+  // Quadro pronto: tira o canvas antigo, que estava na frente
+  if (oldCanvas && oldCanvas.parentNode) oldCanvas.parentNode.removeChild(oldCanvas);
 }
 
 /* ── Tamanho do círculo e posição dos botões em arco ── */
@@ -916,8 +958,10 @@ function handleWheelInput(e) {
   scheduleUpdate();
 }
 
-onPointer(canvas, 'down', (e) => {
+// O canvas é trocado a cada quadro, então o clique é ouvido no contêiner
+onPointer($('wheelWrapper'), 'down', (e) => {
   if (e.button !== undefined && e.button !== 0) return;
+  if (!e.target || String(e.target.tagName).toUpperCase() !== 'CANVAS') return; // botões em arco têm seus próprios cliques
   let pos = getCanvasPos(e);
   let L = getLayout();
   let dist = Math.sqrt((pos.x - L.CX) ** 2 + (pos.y - L.CY) ** 2);
