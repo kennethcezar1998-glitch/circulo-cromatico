@@ -1,0 +1,45 @@
+{
+  "manifestVersion": 5,
+  "id": "com.circulocromatico.ryb",
+  "name": "Círculo Cromático RYB",
+  "version": "1.0.0",
+  "main": "index.html",
+  "host": {
+    "app": "PS",
+    "minVersion": "25.0.0"
+  },
+  "requiredPermissions": {
+    "clipboard": "readAndWrite"
+  },
+  "icons": [
+    {
+      "width": 48,
+      "height": 48,
+      "path": "icons/plugin.png",
+      "scale": [1, 2],
+      "theme": ["all"],
+      "species": ["pluginList"]
+    }
+  ],
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "wheelPanel",
+      "label": { "default": "Círculo Cromático" },
+      "minimumSize": { "width": 240, "height": 320 },
+      "maximumSize": { "width": 800, "height": 2000 },
+      "preferredDockedSize": { "width": 300, "height": 640 },
+      "preferredFloatingSize": { "width": 340, "height": 720 },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/panel.png",
+          "scale": [1, 2],
+          "theme": ["all"],
+          "species": ["chrome"]
+        }
+      ]
+    }
+  ]
+}

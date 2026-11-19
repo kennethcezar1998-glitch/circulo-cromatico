@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Como instalar o Círculo Cromático no Photoshop</title>
+<style>
+  body { font-family: 'Segoe UI', -apple-system, Roboto, Helvetica, Arial, sans-serif; background: #f4f4f2; color: #222; line-height: 1.55; margin: 0; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  .sub { color: #666; margin: 0 0 28px; }
+  h2 { font-size: 19px; margin: 36px 0 12px; padding-top: 16px; border-top: 1px solid #ddd; }
+  h3 { font-size: 15px; margin: 22px 0 8px; }
+  ol, ul { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  code { background: #e8e8e4; padding: 1px 5px; border-radius: 4px; font-family: Consolas, 'Courier New', monospace; font-size: 13px; }
+  pre { background: #1e1e1e; color: #eaeaea; padding: 12px 14px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+  pre code { background: none; padding: 0; color: inherit; }
+  .box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 14px 18px; margin: 14px 0; }
+  .ok { border-left: 4px solid #2e9d4a; }
+  .warn { border-left: 4px solid #e0a100; }
+  .tip { border-left: 4px solid #2f7fd1; }
+  .menu { font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; }
+  th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; font-size: 14px; }
+  th { background: #eee; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Círculo Cromático para Photoshop</h1>
+<p class="sub">Passo a passo de instalação · versão 1.0.0</p>
+
+<div class="box tip">
+  <strong>O que você recebeu:</strong> o arquivo <code>Circulo-Cromatico.ccx</code>. É o instalador do plug-in.
+  Não precisa abrir nem descompactar: siga os passos abaixo.
+</div>
+
+<h2>1. Antes de começar</h2>
+<ul>
+  <li><strong>Photoshop 2024 (versão 25.0) ou mais novo.</strong> Para conferir, abra o Photoshop e vá em <span class="menu">Ajuda › Sobre o Photoshop</span> (no Mac: <span class="menu">Photoshop › Sobre o Photoshop</span>).</li>
+  <li><strong>Aplicativo Creative Cloud</strong> instalado. Ele já vem com o Photoshop e é ele que faz a instalação.</li>
+  <li>Abra o Photoshop <strong>pelo menos uma vez</strong> antes de instalar e depois <strong>feche-o</strong>.</li>
+  <li>Funciona no Windows e no Mac.</li>
+</ul>
+
+<h2>2. Instalar com dois cliques (jeito normal)</h2>
+<ol>
+  <li>Feche o Photoshop.</li>
+  <li>Copie o arquivo <code>Circulo-Cromatico.ccx</code> para o computador (por exemplo, para a Área de Trabalho).</li>
+  <li>Dê <strong>dois cliques</strong> no arquivo <code>Circulo-Cromatico.ccx</code>.</li>
+  <li>O aplicativo Creative Cloud vai abrir e mostrar um aviso dizendo que o plug-in <em>não vem do Marketplace da Adobe</em>.
+      Isso é normal para plug-ins distribuídos diretamente. Clique em <strong>Instalar</strong> (ou <strong>OK</strong>).</li>
+  <li>Se o Windows ou o Mac pedir senha de administrador, digite a senha do computador.</li>
+  <li>Aguarde a mensagem de que a instalação foi concluída.</li>
+</ol>
+
+<div class="box ok">
+  <strong>Deu certo?</strong> Pule para a seção <strong>4. Abrir o painel</strong>.<br>
+  Se o duplo clique não fez nada ou apareceu um erro, use a seção 3.
+</div>
+
+<h2>3. Se o duplo clique não funcionar</h2>
+
+<h3>Windows</h3>
+<ol>
+  <li>Clique no menu Iniciar, digite <code>cmd</code>, clique com o botão direito em <strong>Prompt de Comando</strong> e escolha <strong>Executar como administrador</strong>.</li>
+  <li>Copie e cole este comando e aperte <strong>Enter</strong>:
+<pre><code>cd "C:\Program Files\Common Files\Adobe\Adobe Desktop Common\RemoteComponents\UPI\UnifiedPluginInstallerAgent"</code></pre></li>
+  <li>Depois cole este, trocando o caminho pelo lugar onde está o seu arquivo, e aperte <strong>Enter</strong>:
+<pre><code>UnifiedPluginInstallerAgent.exe /install "%USERPROFILE%\Desktop\Circulo-Cromatico.ccx"</code></pre>
+      <small>Dica: se o arquivo estiver em outra pasta, segure <strong>Shift</strong>, clique com o botão direito nele e escolha <strong>Copiar como caminho</strong>; depois cole no lugar do caminho acima.</small></li>
+  <li>A mensagem final deve dizer que a instalação foi concluída com sucesso.</li>
+</ol>
+
+<h3>Mac</h3>
+<ol>
+  <li>Abra o <strong>Terminal</strong> (Aplicativos › Utilitários › Terminal).</li>
+  <li>Cole este comando e aperte <strong>Enter</strong>:
+<pre><code>cd "/Library/Application Support/Adobe/Adobe Desktop Common/RemoteComponents/UPI/UnifiedPluginInstallerAgent/UnifiedPluginInstallerAgent.app/Contents/macOS"</code></pre></li>
+  <li>Depois este (ajuste o caminho se o arquivo não estiver na Mesa):
+<pre><code>sudo ./UnifiedPluginInstallerAgent --install ~/Desktop/Circulo-Cromatico.ccx</code></pre>
+      Ele vai pedir a senha do Mac. Os caracteres não aparecem enquanto você digita; é normal.</li>
+</ol>
+
+<h3>Último recurso: carregar pelo UXP Developer Tool</h3>
+<p>Use só se nada acima funcionar. Nesse modo, o plug-in precisa ser carregado de novo toda vez que o Photoshop for aberto.</p>
+<ol>
+  <li>Renomeie <code>Circulo-Cromatico.ccx</code> para <code>Circulo-Cromatico.zip</code> e extraia para uma pasta.</li>
+  <li>No Photoshop: <span class="menu">Editar › Preferências › Plug-ins</span> (no Mac: <span class="menu">Photoshop › Configurações › Plug-ins</span>) e marque <strong>Ativar Modo de Desenvolvedor</strong>. Reinicie o Photoshop.</li>
+  <li>No aplicativo Creative Cloud, procure e instale <strong>UXP Developer Tool</strong>.</li>
+  <li>Abra o UXP Developer Tool, clique em <strong>Add Plugin</strong> e escolha o arquivo <code>manifest.json</code> da pasta extraída.</li>
+  <li>Com o Photoshop aberto, clique nos <strong>•••</strong> do plug-in e em <strong>Load</strong>.</li>
+</ol>
+
+<h2>4. Abrir o painel</h2>
+<ol>
+  <li>Abra o Photoshop.</li>
+  <li>Vá em <span class="menu">Plug-ins › Círculo Cromático RYB › Círculo Cromático</span>.</li>
+  <li>O painel aparece flutuando. Arraste-o pela aba até a lateral para encaixá-lo junto aos outros painéis.</li>
+</ol>
+<div class="box tip">
+  Não aparece no menu <span class="menu">Plug-ins</span>? Feche e abra o Photoshop de novo. Se ainda não aparecer, abra
+  <span class="menu">Plug-ins › Painel de Plug-ins</span> e veja se o Círculo Cromático está na lista e ativado.
+</div>
+
+<h2>5. Como usar</h2>
+<table>
+  <tr><th>Ação</th><th>O que acontece</th></tr>
+  <tr><td>Arrastar no anel ou no triângulo</td><td>A cor vira a <strong>cor de primeiro plano</strong> do Photoshop na hora.</td></tr>
+  <tr><td>Usar o conta-gotas, o seletor de cores, <code>X</code> ou <code>D</code> no Photoshop</td><td>O círculo acompanha automaticamente.</td></tr>
+  <tr><td>Clicar numa amostra (harmonias, paleta de 9 cores, Luz e Sombra)</td><td>A amostra vira a cor de primeiro plano. O círculo continua onde estava, para você poder pegar várias cores da mesma paleta.</td></tr>
+  <tr><td><strong>Alt</strong> + clique numa amostra</td><td>Copia o código HEX.</td></tr>
+  <tr><td>Quadrados no canto do círculo</td><td>Cor principal e secundária (primeiro plano e plano de fundo). A setinha troca as duas; o ícone preto e branco volta ao padrão.</td></tr>
+  <tr><td>Botão branco no canto</td><td>Modo compacto: mostra só o círculo e as harmonias.</td></tr>
+  <tr><td>Bolinha no canto do título</td><td><strong>Verde</strong>: ligado ao Photoshop. <strong>Cinza</strong>: sem ligação. Geralmente é porque alguma caixa de diálogo do Photoshop está aberta; feche-a.</td></tr>
+</table>
+
+<h2>6. Atualizar ou desinstalar</h2>
+<ul>
+  <li><strong>Atualizar:</strong> quando receber um <code>.ccx</code> mais novo, é só instalar por cima, do mesmo jeito.</li>
+  <li><strong>Desinstalar:</strong> no aplicativo Creative Cloud, abra a área de <strong>Plug-ins</strong> (em <span class="menu">Stock e Marketplace</span> ou pelo ícone de peça de quebra-cabeça), clique em <strong>Gerenciar plug-ins</strong>, depois nos <strong>•••</strong> ao lado de “Círculo Cromático RYB” e em <strong>Desinstalar</strong>.</li>
+</ul>
+
+<h2>7. Problemas comuns</h2>
+<table>
+  <tr><th>Problema</th><th>Solução</th></tr>
+  <tr><td>Erro “status = -198” ou “falha na instalação”</td><td>Atualize o aplicativo Creative Cloud, abra e feche o Photoshop uma vez e tente de novo pela seção 3, como administrador.</td></tr>
+  <tr><td>“Este plug-in não é compatível”</td><td>O Photoshop é anterior à versão 25.0 (2024). Atualize o Photoshop pelo Creative Cloud.</td></tr>
+  <tr><td>A cor não muda no Photoshop</td><td>Veja se a bolinha do título está verde. Se estiver cinza, feche diálogos abertos (Níveis, Curvas, Salvar etc.).</td></tr>
+  <tr><td>O duplo clique abre outro programa (WinRAR, 7-Zip…)</td><td>Use o método da seção 3.</td></tr>
+</table>
+
+</main>
+</body>
+</html>

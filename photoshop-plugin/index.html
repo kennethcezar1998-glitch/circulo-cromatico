@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Círculo Cromático</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-container" id="appContainer">
+  <div class="header">
+    <div class="header-title" id="uiModeTitle">RYB Color Wheel Pro</div>
+    <div class="ps-status" id="psStatus" title="">●</div>
+  </div>
+
+  <div class="main-content">
+    <div class="wheel-section" id="wheelSection">
+      <div class="wheel-wrapper" id="wheelWrapper">
+        <canvas id="colorCanvas" width="300" height="300"></canvas>
+
+        <div class="arc-btn active" data-ang="10" data-rule="none" title="Esquema Livre"></div>
+        <div class="arc-btn" data-ang="20" data-rule="mono" title="Esquema Monocromático"></div>
+        <div class="arc-btn" data-ang="30" data-rule="analogous" title="Esquema de Análogas"></div>
+        <div class="arc-btn" data-ang="40" data-rule="complementary" title="Esquema Complementar"></div>
+        <div class="arc-btn" data-ang="50" data-rule="split" title="Esquema Meio-Complementar"></div>
+        <div class="arc-btn" data-ang="60" data-rule="triadic" title="Esquema de Tríade"></div>
+        <div class="arc-btn" data-ang="70" data-rule="tetradic" title="Esquema de Tétrade"></div>
+
+        <div class="mode-toggle-btn" id="btnModeToggle" data-ang="-135" title="Alternar RGB/RYB"></div>
+        <div class="mode-toggle-btn" id="btnLuma" data-ang="-160" title="Travar Luminosidade"></div>
+      </div>
+
+      <!-- Cores principal / secundária (espelham as cores do Photoshop) -->
+      <div class="fgbg-widget">
+        <div class="fgbg-swatch fgbg-back" id="bgSwatch"></div>
+        <div class="fgbg-swatch fgbg-front" id="fgSwatch"></div>
+        <div class="fgbg-swap" id="btnSwapFgBg" title="Trocar cor principal e secundária">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#cfcfcf" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 9a7 7 0 0 1 10-4"/><path d="M13 2l3 3-3 3"/>
+            <path d="M19 15a7 7 0 0 1-10 4"/><path d="M11 22l-3-3 3-3"/>
+          </svg>
+        </div>
+        <div class="fgbg-reset" id="btnResetFgBg" title="Cores padrão (preto e branco)">
+          <div class="fgbg-reset-white"></div>
+          <div class="fgbg-reset-black"></div>
+        </div>
+      </div>
+
+      <!-- Modo compacto (substitui a "tela cheia" da versão web) -->
+      <div class="compact-toggle-btn" id="btnCompact" title="Modo compacto"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="output-section">
+      <div class="swatch-row">
+        <div class="main-swatch" id="mainSwatch" title="Copiar cor"></div>
+        <div class="harm-swatches" id="harmonyContainer"></div>
+      </div>
+
+      <div class="values-grid">
+        <div class="val-box" data-field="valHex" title="Clique no rótulo para copiar · no valor para editar"><span class="val-label">HEX</span><input class="val-text" id="valHex" type="text" value="#000"></div>
+        <div class="val-box" data-field="valRgb" title="Clique no rótulo para copiar · no valor para editar"><span class="val-label">RGB</span><input class="val-text" id="valRgb" type="text" value="0,0,0"></div>
+        <div class="val-box" data-field="valHsv" title="Clique no rótulo para copiar · no valor para editar"><span class="val-label">HSV</span><input class="val-text" id="valHsv" type="text" value="0,0,0"></div>
+        <div class="val-box" data-field="valCmyk" title="Clique no rótulo para copiar · no valor para editar"><span class="val-label">CMYK</span><input class="val-text" id="valCmyk" type="text" value="0,0,0,0"></div>
+      </div>
+
+      <div class="tabs-container">
+        <div class="tabs-scroll-wrapper" id="tabsWrapper">
+          <div class="tabs-header" id="tabsHeader">
+            <div class="tab-btn active" data-tab="monochromatic">Monocromático</div>
+            <div class="tab-btn" data-tab="shades">Tons</div>
+            <div class="tab-btn" data-tab="compound">Composto</div>
+            <div class="tab-btn" data-tab="square">Quadrado</div>
+            <div class="tab-btn" data-tab="triad">Tríade</div>
+            <div class="tab-btn" data-tab="split">Meio-Complementar</div>
+            <div class="tab-btn" data-tab="complementary">Complementar</div>
+            <div class="tab-btn" data-tab="analogous">Análogas</div>
+          </div>
+          <div class="tabs-fade tabs-fade-left" id="fadeLeft"></div>
+          <div class="tabs-fade tabs-fade-right" id="fadeRight"></div>
+        </div>
+        <div class="tab-content">
+          <div class="palette-9-grid" id="palette9Grid"></div>
+        </div>
+      </div>
+
+      <div class="theory-section">
+        <div class="theory-title">Sugestão de Volume (Teoria da Criatividade)</div>
+        <div class="light-shadow-palette" id="lsPalette"></div>
+        <div class="theory-insight-box" id="theoryInsight">Selecione uma cor para gerar o diagnóstico com base na Teoria da Cor.</div>
+      </div>
+
+      <div class="hint">Clique numa amostra para usá-la como cor de primeiro plano · Alt + clique copia o HEX</div>
+    </div>
+
+    <div class="sliders-section">
+      <div class="sliders-container" id="slidersContainer"></div>
+      <div class="slider-mode-bar">
+        <span>MODO:</span>
+        <div class="slider-mode-btn" data-mode="RGB">RGB</div>
+        <div class="slider-mode-btn active" data-mode="HSV">HSV</div>
+        <div class="slider-mode-btn" data-mode="LAB">LAB</div>
+        <div class="slider-mode-btn" data-mode="CMYK">CMYK</div>
+        <div class="slider-mode-btn" data-mode="B/W">B/W</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="copy-toast" id="copyToast">
+  <div class="copy-toast-box">
+    <div class="copy-toast-swatch" id="copyToastSwatch"></div>
+    <span id="copyToastText"></span>
+  </div>
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
