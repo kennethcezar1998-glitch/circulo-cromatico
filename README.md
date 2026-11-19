@@ -29,7 +29,7 @@ O painel funciona no **Photoshop 2024 (versão 25) ou mais novo**, no Windows e 
 
 ### Instalação
 
-1. Baixe o instalador [**Circulo-Cromatico.ccx**](https://github.com/kennethcezar1998-glitch/circulo-cromatico/raw/master/dist/Circulo-Cromatico.ccx).
+1. Baixe o instalador [**Circulo-Cromatico.ccx**](https://github.com/kennethcezar1998-glitch/circulo-cromatico/releases/latest/download/Circulo-Cromatico.ccx) da [última release](https://github.com/kennethcezar1998-glitch/circulo-cromatico/releases/latest).
 2. Com o Photoshop fechado, dê dois cliques no arquivo e confirme a instalação no aplicativo Creative Cloud.
 3. Abra o Photoshop e vá em **Plug-ins › Círculo Cromático RYB › Círculo Cromático**.
 
