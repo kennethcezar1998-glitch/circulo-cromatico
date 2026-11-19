@@ -1,7 +1,7 @@
 # Círculo Cromático RYB
 
 Círculo cromático com harmonias, paletas e sugestão de luz e sombra para quem pinta e ilustra.
-Funciona como **página web** (um único arquivo HTML) e como **painel para o Photoshop**, ligado às cores de primeiro plano e plano de fundo.
+Funciona como **[página web](https://kennethcezar1998-glitch.github.io/circulo-cromatico/)** (um único arquivo HTML) e como **painel para o Photoshop**, ligado às cores de primeiro plano e plano de fundo.
 
 <p align="center">
   <img src="docs/painel.png" alt="Painel do Círculo Cromático no esquema de tríade" width="320">
@@ -37,7 +37,9 @@ Se o duplo clique não funcionar, siga o passo a passo completo em [**COMO INSTA
 
 ## Versão web
 
-Baixe [`circulo cromatico ativo .html`](circulo%20cromatico%20ativo%20.html) e abra no navegador. Não precisa de instalação nem de internet.
+**Use online:** [kennethcezar1998-glitch.github.io/circulo-cromatico](https://kennethcezar1998-glitch.github.io/circulo-cromatico/)
+
+Ou baixe [`circulo cromatico ativo .html`](circulo%20cromatico%20ativo%20.html) e abra no navegador. Funciona sem instalação e sem internet.
 
 ## Estrutura do repositório
 
@@ -49,6 +51,7 @@ Baixe [`circulo cromatico ativo .html`](circulo%20cromatico%20ativo%20.html) e a
 | `empacotar-plugin.ps1` | Gera o `.ccx` a partir de `photoshop-plugin/` |
 | `COMO INSTALAR.md` | Passo a passo de instalação do plugin |
 | `docs/` | Imagens do README |
+| `.github/workflows/pages.yml` | Publica a versão web no GitHub Pages a cada alteração |
 | `LICENSE` | Licença MIT |
 
 ## Desenvolvimento
