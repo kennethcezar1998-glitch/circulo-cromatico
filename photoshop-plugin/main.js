@@ -180,6 +180,7 @@ const diag = {
   reads: 0,        // leituras das cores do Photoshop
   external: 0,     // mudanças vindas do Photoshop aplicadas ao círculo
   resizes: 0,      // vezes que o círculo foi redimensionado
+  images: 0,       // quadros mostrados como imagem (modo E)
   syncOn: true,    // ligação com o Photoshop (pode ser desligada na barra)
   visible: false
 };
@@ -192,7 +193,8 @@ function renderDiag() {
   diagTimer = null;
   const bar = $('diagBar');
   if (!bar || !diag.visible) return;
-  const text = `desenhos ${diag.draws} · envios ${diag.pushes} · leituras ${diag.reads} · externas ${diag.external} · redimens. ${diag.resizes}`;
+  let text = `desenhos ${diag.draws} · imagens ${diag.images} · envios ${diag.pushes} · leituras ${diag.reads} · externas ${diag.external} · redimens. ${diag.resizes}`;
+  if (imageModeFailed) text += ' · a imagem falhou, voltei ao canvas';
   if ($('diagText').textContent !== text) $('diagText').textContent = text;
   const sync = diag.syncOn ? 'PS: ligado (clique p/ desligar)' : 'PS: DESLIGADO (clique p/ ligar)';
   if ($('diagSync').textContent !== sync) $('diagSync').textContent = sync;
@@ -304,12 +306,13 @@ let wheelCssSize = 300;   // tamanho do círculo na tela (px CSS)
 let canvasScale = 1;      // px do canvas por px CSS
 
 function getLayout() {
-  let w = canvas.width;
+  // No modo E o tamanho em pixels é o da imagem; nos outros, o do canvas
+  let w = drawMode === 'E' ? imgPx : canvas.width;
   return {
     W: w, H: w, CX: w / 2, CY: w / 2,
     R_OUTER: w * (140 / 300),
     R_INNER: w * (108 / 300),
-    k: canvasScale
+    k: drawMode === 'E' ? imgPx / wheelCssSize : canvasScale
   };
 }
 
@@ -441,6 +444,305 @@ function dashedPolyline(points, closed, dash, gap) {
 }
 
 /*
+ * MODO E: O CÍRCULO COMO IMAGEM
+ * Testes da 1.0.1 à 1.0.4 mostraram que o Photoshop repinta o canvas sozinho,
+ * mesmo com o plugin parado, e é isso que pisca. Aqui o canvas não é usado:
+ * cada pixel do círculo é calculado num buffer, o buffer vira um PNG e o PNG é
+ * mostrado numa <img>. Uma imagem é um bitmap pronto, sem comandos de desenho
+ * para o Photoshop repetir.
+ * Duas <img> se revezam: o quadro novo carrega na de trás (invisível) e só
+ * aparece quando já estiver pronto, para nunca mostrar meio quadro.
+ */
+const BG_RGB = [0x22, 0x22, 0x22];
+const wheelImgs = [$('wheelImgA'), $('wheelImgB')];
+let imgFront = 0;            // índice da imagem visível
+let imgPx = 300;             // largura da imagem em pixels
+let imageModeFailed = false;
+let pixBuf = null;
+let ringCache = null, ringCacheKey = '';
+
+function fillBackground(buf) {
+  for (let i = 0; i < buf.length; i += 3) {
+    buf[i] = BG_RGB[0]; buf[i + 1] = BG_RGB[1]; buf[i + 2] = BG_RGB[2];
+  }
+}
+
+// Mistura uma cor no pixel i com cobertura a (0 a 1), para bordas suaves
+function blendPx(buf, i, r, g, b, a) {
+  if (a >= 1) { buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; return; }
+  buf[i] += (r - buf[i]) * a;
+  buf[i + 1] += (g - buf[i + 1]) * a;
+  buf[i + 2] += (b - buf[i + 2]) * a;
+}
+
+const clamp01 = (n) => n <= 0 ? 0 : (n >= 1 ? 1 : n);
+
+// Fundo + anel. Só muda com o tamanho e com RYB/RGB, então fica guardado.
+function buildRing(L) {
+  const W = L.W;
+  const buf = new Uint8ClampedArray(W * W * 3);
+  fillBackground(buf);
+  const STEPS = 1440; // cor a cada 0,25°
+  const lut = new Uint8Array(STEPS * 3);
+  for (let s = 0; s < STEPS; s++) {
+    const c = hsv2rgb(getRenderHue(s * 360 / STEPS), 1, 1);
+    lut[s * 3] = c[0]; lut[s * 3 + 1] = c[1]; lut[s * 3 + 2] = c[2];
+  }
+  const lo = Math.max(0, Math.floor(L.CX - L.R_OUTER - 1));
+  const hi = Math.min(W - 1, Math.ceil(L.CX + L.R_OUTER + 1));
+  for (let y = lo; y <= hi; y++) {
+    const dy = y + 0.5 - L.CY;
+    for (let x = lo; x <= hi; x++) {
+      const dx = x + 0.5 - L.CX;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const cov = Math.min(clamp01(d - L.R_INNER + 0.5), clamp01(L.R_OUTER - d + 0.5));
+      if (cov <= 0) continue;
+      let ang = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+      if (ang < 0) ang += 360;
+      const k = (Math.floor(ang / 360 * STEPS) % STEPS) * 3;
+      blendPx(buf, (y * W + x) * 3, lut[k], lut[k + 1], lut[k + 2], cov);
+    }
+  }
+  return buf;
+}
+
+// Triângulo: mesma conta de cor que o clique (cor = HSV com o matiz atual)
+function rasterTriangle(buf, W, verts, hueRgb) {
+  const P0 = verts[0], P1 = verts[1], P2 = verts[2];
+  const denom = (P1.y - P2.y) * (P0.x - P2.x) + (P2.x - P1.x) * (P0.y - P2.y);
+  if (!denom) return;
+  const area2 = Math.abs(denom);
+  const h0 = area2 / Math.hypot(P2.x - P1.x, P2.y - P1.y);
+  const h1 = area2 / Math.hypot(P0.x - P2.x, P0.y - P2.y);
+  const h2 = area2 / Math.hypot(P1.x - P0.x, P1.y - P0.y);
+  const x0 = Math.max(0, Math.floor(Math.min(P0.x, P1.x, P2.x) - 1));
+  const x1 = Math.min(W - 1, Math.ceil(Math.max(P0.x, P1.x, P2.x) + 1));
+  const y0 = Math.max(0, Math.floor(Math.min(P0.y, P1.y, P2.y) - 1));
+  const y1 = Math.min(W - 1, Math.ceil(Math.max(P0.y, P1.y, P2.y) + 1));
+  const hr = hueRgb[0], hg = hueRgb[1], hb = hueRgb[2];
+  for (let y = y0; y <= y1; y++) {
+    const py = y + 0.5;
+    for (let x = x0; x <= x1; x++) {
+      const px = x + 0.5;
+      const w0 = ((P1.y - P2.y) * (px - P2.x) + (P2.x - P1.x) * (py - P2.y)) / denom;
+      const w1 = ((P2.y - P0.y) * (px - P2.x) + (P0.x - P2.x) * (py - P2.y)) / denom;
+      const w2 = 1 - w0 - w1;
+      const cov = clamp01(Math.min(w0 * h0, w1 * h1, w2 * h2) + 0.5);
+      if (cov <= 0) continue;
+      const a0 = Math.max(0, w0), a1 = Math.max(0, w1), a2 = Math.max(0, w2);
+      const sum = a0 + a1 + a2;
+      const v = (a0 + a1) / sum;
+      const s = v > 0 ? (a0 / sum) / v : 0;
+      const gray = v * 255 * (1 - s);
+      blendPx(buf, (y * W + x) * 3,
+        Math.round(gray + s * v * hr), Math.round(gray + s * v * hg), Math.round(gray + s * v * hb), cov);
+    }
+  }
+}
+
+// Segmento de reta com espessura lw
+function rasterSegment(buf, W, ax, ay, bx, by, lw, col) {
+  const hw = lw / 2;
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  const x0 = Math.max(0, Math.floor(Math.min(ax, bx) - hw - 1));
+  const x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx) + hw + 1));
+  const y0 = Math.max(0, Math.floor(Math.min(ay, by) - hw - 1));
+  const y1 = Math.min(W - 1, Math.ceil(Math.max(ay, by) + hw + 1));
+  for (let y = y0; y <= y1; y++) {
+    const py = y + 0.5;
+    for (let x = x0; x <= x1; x++) {
+      const px = x + 0.5;
+      let t = len2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
+      t = t < 0 ? 0 : (t > 1 ? 1 : t);
+      const ex = px - (ax + t * dx), ey = py - (ay + t * dy);
+      const cov = clamp01(hw + 0.5 - Math.sqrt(ex * ex + ey * ey));
+      if (cov > 0) blendPx(buf, (y * W + x) * 3, col[0], col[1], col[2], cov);
+    }
+  }
+}
+
+// Mesmo tracejado do dashedPolyline, pixel a pixel
+function rasterDashed(buf, W, points, closed, dash, gap, lw, col) {
+  const pts = closed ? points.concat([points[0]]) : points;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const len = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+    if (len === 0) continue;
+    const ux = (b.x - a.x) / len, uy = (b.y - a.y) / len;
+    for (let d = 0; d < len; d += dash + gap) {
+      const e = Math.min(d + dash, len);
+      rasterSegment(buf, W, a.x + ux * d, a.y + uy * d, a.x + ux * e, a.y + uy * e, lw, col);
+    }
+  }
+}
+
+// Bolinha com borda branca (borda centrada no raio, como o stroke do canvas)
+function rasterDisc(buf, W, cx, cy, r, sw, fill) {
+  const outer = r + sw / 2, inner = r - sw / 2;
+  const x0 = Math.max(0, Math.floor(cx - outer - 1)), x1 = Math.min(W - 1, Math.ceil(cx + outer + 1));
+  const y0 = Math.max(0, Math.floor(cy - outer - 1)), y1 = Math.min(W - 1, Math.ceil(cy + outer + 1));
+  for (let y = y0; y <= y1; y++) {
+    const dy = y + 0.5 - cy;
+    for (let x = x0; x <= x1; x++) {
+      const dx = x + 0.5 - cx;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const co = clamp01(outer + 0.5 - d);
+      if (co <= 0) continue;
+      const i = (y * W + x) * 3;
+      blendPx(buf, i, 255, 255, 255, co);
+      const ci = clamp01(inner + 0.5 - d);
+      if (ci > 0) blendPx(buf, i, fill[0], fill[1], fill[2], ci);
+    }
+  }
+}
+
+/* ── PNG sem compressão (deflate "stored"), feito à mão ── */
+let crcTable = null;
+function crc32(bytes, start, end) {
+  if (!crcTable) {
+    crcTable = new Int32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      crcTable[n] = c;
+    }
+  }
+  let c = -1;
+  for (let i = start; i < end; i++) c = crcTable[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ -1) >>> 0;
+}
+
+function adler32(bytes) {
+  let a = 1, b = 0;
+  const n = bytes.length;
+  for (let i = 0; i < n;) {
+    const end = Math.min(i + 5552, n);
+    for (; i < end; i++) { a += bytes[i]; b += a; }
+    a %= 65521; b %= 65521;
+  }
+  return ((b << 16) | a) >>> 0;
+}
+
+function encodePng(rgb, W, H) {
+  const rowLen = W * 3 + 1;
+  const raw = new Uint8Array(rowLen * H);       // cada linha: filtro 0 + pixels
+  for (let y = 0; y < H; y++) raw.set(rgb.subarray(y * W * 3, (y + 1) * W * 3), y * rowLen + 1);
+  const nBlocks = Math.max(1, Math.ceil(raw.length / 65535));
+  const zLen = 2 + raw.length + nBlocks * 5 + 4;
+  const out = new Uint8Array(8 + 25 + 12 + zLen + 12);
+  let p = 0;
+  const u32 = (v) => { out[p++] = v >>> 24; out[p++] = (v >>> 16) & 255; out[p++] = (v >>> 8) & 255; out[p++] = v & 255; };
+  const type = (s) => { for (let i = 0; i < 4; i++) out[p++] = s.charCodeAt(i); };
+  [137, 80, 78, 71, 13, 10, 26, 10].forEach(b => { out[p++] = b; });
+  // IHDR
+  u32(13); let cs = p; type('IHDR');
+  u32(W); u32(H); out[p++] = 8; out[p++] = 2; out[p++] = 0; out[p++] = 0; out[p++] = 0;
+  u32(crc32(out, cs, p));
+  // IDAT (zlib com blocos sem compressão)
+  u32(zLen); cs = p; type('IDAT');
+  out[p++] = 0x78; out[p++] = 0x01;
+  for (let off = 0, b = 0; b < nBlocks; b++) {
+    const len = Math.min(65535, raw.length - off);
+    out[p++] = b === nBlocks - 1 ? 1 : 0;
+    out[p++] = len & 255; out[p++] = len >>> 8;
+    out[p++] = ~len & 255; out[p++] = (~len >>> 8) & 255;
+    out.set(raw.subarray(off, off + len), p);
+    p += len; off += len;
+  }
+  u32(adler32(raw));
+  u32(crc32(out, cs, p));
+  // IEND
+  u32(0); cs = p; type('IEND'); u32(crc32(out, cs, p));
+  return out;
+}
+
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+// Tabela de pares de caracteres (12 bits por vez): ~6x mais rápido que 1 por vez
+const B64_PAIRS = new Array(4096);
+for (let i = 0; i < 4096; i++) B64_PAIRS[i] = B64_CHARS[i >> 6] + B64_CHARS[i & 63];
+function toBase64(bytes) {
+  const n = bytes.length;
+  let s = '', i = 0;
+  for (; i + 2 < n; i += 3) {
+    const v = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+    s += B64_PAIRS[v >>> 12] + B64_PAIRS[v & 4095];
+  }
+  if (i < n) {
+    const v = (bytes[i] << 16) | ((i + 1 < n ? bytes[i + 1] : 0) << 8);
+    s += B64_CHARS[v >>> 18] + B64_CHARS[(v >>> 12) & 63] +
+      (i + 1 < n ? B64_CHARS[(v >>> 6) & 63] : '=') + '=';
+  }
+  return s;
+}
+
+/* ── Troca das duas imagens ── */
+let imgLoading = false;
+let imgPendingSrc = null;
+function presentImage(src) {
+  if (imgLoading) { imgPendingSrc = src; return; }
+  imgLoading = true;
+  const back = wheelImgs[1 - imgFront];
+  let done = false;
+  const finish = (ok) => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    back.onload = null; back.onerror = null;
+    imgLoading = false;
+    if (!ok) { imageFailed(); return; }
+    diagCount('images');
+    back.style.opacity = '1';
+    wheelImgs[imgFront].style.opacity = '0';
+    imgFront = 1 - imgFront;
+    if (imgPendingSrc) { const next = imgPendingSrc; imgPendingSrc = null; presentImage(next); }
+  };
+  back.onload = () => finish(true);
+  back.onerror = () => finish(false);
+  // Se o Photoshop não avisar que carregou, mostra assim mesmo
+  const timer = setTimeout(() => finish(true), 400);
+  back.src = src;
+}
+
+// Se a imagem não puder ser mostrada, volta ao canvas (modo B) sem salvar
+function imageFailed() {
+  console.warn('Imagem do círculo não carregou; voltando ao canvas.');
+  imgPendingSrc = null;
+  imageModeFailed = true;
+  drawMode = 'B';
+  applySurface();
+  updateAll({ noPush: true });
+  renderDiag();
+}
+
+function drawWheelImage() {
+  const L = getLayout();
+  const W = L.W;
+  const key = W + '|' + state.colorMode;
+  if (!ringCache || ringCacheKey !== key) { ringCache = buildRing(L); ringCacheKey = key; }
+  if (!pixBuf || pixBuf.length !== ringCache.length) pixBuf = new Uint8ClampedArray(ringCache.length);
+  pixBuf.set(ringCache);
+
+  const verts = getTriangleVerts(state.hue);
+  const angles = getHarmonyAngles(state.hue, state.rule);
+  const ringCenter = (L.R_OUTER + L.R_INNER) / 2;
+  rasterTriangle(pixBuf, W, verts, hsv2rgb(getRenderHue(state.hue), 1, 1));
+
+  if (angles.length > 1 && state.rule !== 'mono') {
+    rasterDashed(pixBuf, W, angles.map(a => polarPoint(L, ringCenter, a)),
+      ['triadic', 'tetradic', 'split'].includes(state.rule), 4 * L.k, 4 * L.k, 1.5 * L.k, [200, 200, 200]);
+  }
+  angles.forEach((ang) => {
+    const p = polarPoint(L, ringCenter, ang);
+    rasterDisc(pixBuf, W, p.x, p.y, (ang === state.hue ? 10 : 7) * L.k, 2 * L.k, hsv2rgb(getRenderHue(ang), 1, 1));
+  });
+  const cur = triPoint(verts, state.val, state.sat);
+  rasterDisc(pixBuf, W, cur.x, cur.y, 6 * L.k, 2.5 * L.k, hsv2rgb(getRenderHue(state.hue), state.sat, state.val));
+
+  presentImage('data:image/png;base64,' + toBase64(encodePng(pixBuf, W, W)));
+}
+
+/*
  * MODOS DE DESENHO
  * O canvas do UXP guarda os comandos de desenho e os repete a cada repintura
  * do painel; se a lista cresce, o Photoshop mostra o círculo sendo
@@ -454,17 +756,20 @@ function dashedPolyline(points, closed, dash, gap) {
  *      canvas criado depois de o painel abrir não aparece)
  */
 const DRAW_MODES = {
-  A: 'A: pintar por cima (1.0.1)',
-  B: 'B: limpar (padrão)',
-  C: 'C: redefinir tamanho',
-  D: 'D: canvas novo (1.0.3)'
+  A: 'A: canvas, pintar por cima (1.0.1)',
+  B: 'B: canvas, limpar (1.0.4)',
+  C: 'C: canvas, redefinir tamanho',
+  D: 'D: canvas novo (1.0.3)',
+  E: 'E: imagem, sem canvas (padrão)'
 };
-const DEFAULT_DRAW_MODE = 'B';
+const DEFAULT_DRAW_MODE = 'E';
+// Chave nova na 1.0.5: quem tinha escolhido um modo de canvas volta ao padrão
+const DRAW_MODE_KEY = 'circulo.drawMode.105';
 const originalCanvas = canvas;
 
 function loadDrawMode() {
   try {
-    const saved = window.localStorage && window.localStorage.getItem('circulo.drawMode');
+    const saved = window.localStorage && window.localStorage.getItem(DRAW_MODE_KEY);
     if (saved && DRAW_MODES[saved]) return saved;
   } catch (err) { /* sem localStorage */ }
   return DEFAULT_DRAW_MODE;
@@ -474,10 +779,19 @@ let drawMode = loadDrawMode();
 function setDrawMode(mode) {
   if (!DRAW_MODES[mode]) return;
   drawMode = mode;
-  try { window.localStorage.setItem('circulo.drawMode', mode); } catch (err) { /* ignora */ }
+  imageModeFailed = false;
+  try { window.localStorage.setItem(DRAW_MODE_KEY, mode); } catch (err) { /* ignora */ }
   if (mode !== 'D') restoreOriginalCanvas();
+  applySurface();
   updateAll({ noPush: true });
   renderDiag();
+}
+
+// Mostra o canvas ou as imagens, conforme o modo
+function applySurface() {
+  const useImg = drawMode === 'E';
+  canvas.style.display = useImg ? 'none' : '';
+  wheelImgs.forEach(img => { img.style.display = useImg ? 'block' : 'none'; });
 }
 
 // Volta a usar o canvas que já existia quando o painel abriu
@@ -539,6 +853,7 @@ function prepareCanvas() {
 // Desenha o círculo inteiro (cerca de 85 formas, todas opacas)
 function drawWheel() {
   diagCount('draws');
+  if (drawMode === 'E') { drawWheelImage(); return; }
   const oldCanvas = prepareCanvas();
   const L = getLayout();
   const verts = getTriangleVerts(state.hue);
@@ -610,6 +925,8 @@ function layoutWheel() {
   if (canvas.width !== px) { canvas.width = px; canvas.height = px; }
   // No UXP width/height podem ser só leitura: usa o tamanho real do canvas
   canvasScale = canvas.width / size;
+  imgPx = px;
+  wheelImgs.forEach(img => { img.style.width = size + 'px'; img.style.height = size + 'px'; });
 
   const pad = Math.ceil(size * 0.05 + 18);
   section.style.paddingTop = pad + 'px';
@@ -995,9 +1312,11 @@ function scheduleUpdate() {
  *  INTERAÇÃO COM O CÍRCULO
  * ════════════════════════════════════════════════════════════════ */
 function getCanvasPos(e) {
-  const rect = canvas.getBoundingClientRect();
-  const sx = rect.width > 0 ? canvas.width / rect.width : 1;
-  const sy = rect.height > 0 ? canvas.height / rect.height : 1;
+  // O canvas fica escondido no modo E; o contêiner tem o mesmo tamanho e posição
+  const rect = $('wheelWrapper').getBoundingClientRect();
+  const W = getLayout().W;
+  const sx = rect.width > 0 ? W / rect.width : 1;
+  const sy = rect.height > 0 ? W / rect.height : 1;
   return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
 }
 
@@ -1029,7 +1348,9 @@ function handleWheelInput(e) {
 // O canvas é trocado a cada quadro, então o clique é ouvido no contêiner
 onPointer($('wheelWrapper'), 'down', (e) => {
   if (e.button !== undefined && e.button !== 0) return;
-  if (!e.target || String(e.target.tagName).toUpperCase() !== 'CANVAS') return; // botões em arco têm seus próprios cliques
+  // Só o canvas ou a imagem do círculo; os botões em arco têm seus próprios cliques
+  const tag = e.target ? String(e.target.tagName).toUpperCase() : '';
+  if (tag !== 'CANVAS' && tag !== 'IMG') return;
   let pos = getCanvasPos(e);
   let L = getLayout();
   let dist = Math.sqrt((pos.x - L.CX) ** 2 + (pos.y - L.CY) ** 2);
@@ -1483,6 +1804,7 @@ function checkResize() {
 window.addEventListener('resize', checkResize);
 
 buildSliders();
+applySurface();
 layoutWheel();
 lastSectionWidth = $('wheelSection').clientWidth;
 

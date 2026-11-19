@@ -1,6 +1,6 @@
 # Como instalar o Círculo Cromático no Photoshop
 
-Passo a passo de instalação · versão 1.0.4
+Passo a passo de instalação · versão 1.0.5
 
 > **O que você precisa:** o arquivo [`dist/Circulo-Cromatico.ccx`](dist/Circulo-Cromatico.ccx). É o instalador do plug-in.
 > Não precisa abrir nem descompactar: siga os passos abaixo.

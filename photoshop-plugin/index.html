@@ -22,6 +22,7 @@
       <span class="diag-mode" data-mode="B"></span>
       <span class="diag-mode" data-mode="C"></span>
       <span class="diag-mode" data-mode="D"></span>
+      <span class="diag-mode" data-mode="E"></span>
     </div>
   </div>
 
@@ -29,6 +30,9 @@
     <div class="wheel-section" id="wheelSection">
       <div class="wheel-wrapper" id="wheelWrapper">
         <canvas id="colorCanvas" width="300" height="300"></canvas>
+        <!-- Modo E: o círculo vira uma imagem; as duas se revezam -->
+        <img class="wheel-img" id="wheelImgA" alt="">
+        <img class="wheel-img" id="wheelImgB" alt="">
 
         <div class="arc-btn active" data-ang="10" data-rule="none" title="Esquema Livre"></div>
         <div class="arc-btn" data-ang="20" data-rule="mono" title="Esquema Monocromático"></div>
