@@ -196,6 +196,12 @@ function renderDiag() {
   if ($('diagText').textContent !== text) $('diagText').textContent = text;
   const sync = diag.syncOn ? 'PS: ligado (clique p/ desligar)' : 'PS: DESLIGADO (clique p/ ligar)';
   if ($('diagSync').textContent !== sync) $('diagSync').textContent = sync;
+  document.querySelectorAll('.diag-mode').forEach(el => {
+    const mode = el.getAttribute('data-mode');
+    const label = (mode === drawMode ? '● ' : '○ ') + DRAW_MODES[mode];
+    if (el.textContent !== label) el.textContent = label;
+    if (mode === drawMode) el.classList.add('active'); else el.classList.remove('active');
+  });
 }
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 const nextFrame = (typeof requestAnimationFrame === 'function')
@@ -435,23 +441,66 @@ function dashedPolyline(points, closed, dash, gap) {
 }
 
 /*
- * O canvas do UXP guarda todos os comandos de desenho desde que foi criado e
- * repete a lista inteira a cada repintura do painel. Pintar o fundo por cima
- * não apaga a lista: a cada cor escolhida ela crescia ~85 comandos, e com o
- * tempo o Photoshop passava a mostrar o círculo sendo redesenhado (piscando),
- * mesmo com o plugin parado.
- * Por isso cada quadro é desenhado num canvas novo (uma cópia vazia do atual),
- * colocado atrás dele; quando fica pronto, o antigo é removido. A lista nunca
- * passa de um quadro e um círculo pela metade nunca aparece na tela.
+ * MODOS DE DESENHO
+ * O canvas do UXP guarda os comandos de desenho e os repete a cada repintura
+ * do painel; se a lista cresce, o Photoshop mostra o círculo sendo
+ * redesenhado (piscando), mesmo com o plugin parado. Cada modo tenta limpar
+ * essa lista de um jeito. O modo pode ser trocado na barra de diagnóstico
+ * (clique no título do painel) e fica salvo.
+ *   A: pinta por cima, sem limpar (como na 1.0.1)
+ *   B: limpa com clearRect antes de cada quadro (padrão)
+ *   C: redefine o tamanho do canvas antes de cada quadro
+ *   D: desenha cada quadro num canvas novo (como na 1.0.3; no Photoshop o
+ *      canvas criado depois de o painel abrir não aparece)
  */
+const DRAW_MODES = {
+  A: 'A: pintar por cima (1.0.1)',
+  B: 'B: limpar (padrão)',
+  C: 'C: redefinir tamanho',
+  D: 'D: canvas novo (1.0.3)'
+};
+const DEFAULT_DRAW_MODE = 'B';
+const originalCanvas = canvas;
+
+function loadDrawMode() {
+  try {
+    const saved = window.localStorage && window.localStorage.getItem('circulo.drawMode');
+    if (saved && DRAW_MODES[saved]) return saved;
+  } catch (err) { /* sem localStorage */ }
+  return DEFAULT_DRAW_MODE;
+}
+let drawMode = loadDrawMode();
+
+function setDrawMode(mode) {
+  if (!DRAW_MODES[mode]) return;
+  drawMode = mode;
+  try { window.localStorage.setItem('circulo.drawMode', mode); } catch (err) { /* ignora */ }
+  if (mode !== 'D') restoreOriginalCanvas();
+  updateAll({ noPush: true });
+  renderDiag();
+}
+
+// Volta a usar o canvas que já existia quando o painel abriu
+function restoreOriginalCanvas() {
+  if (canvas === originalCanvas) return;
+  const current = canvas;
+  originalCanvas.style.display = '';
+  if (!originalCanvas.parentNode) current.parentNode.insertBefore(originalCanvas, current);
+  if (current.parentNode) current.parentNode.removeChild(current);
+  canvas = originalCanvas;
+  ctx = canvas.getContext('2d');
+}
+
+// Modo D: cópia vazia do canvas, montada atrás do atual
 let freshCanvasUnsupported = false;
 function beginFreshCanvas() {
   if (freshCanvasUnsupported) return null;
   const old = canvas;
   let fresh = null;
   try {
-    fresh = old.cloneNode(false); // mesmos atributos e estilo, sem desenho
-    old.parentNode.insertBefore(fresh, old); // fica atrás do antigo até ficar pronto
+    fresh = old.cloneNode(false);
+    fresh.style.display = '';
+    old.parentNode.insertBefore(fresh, old);
     if (fresh.width !== old.width || fresh.height !== old.height) {
       fresh.setAttribute('width', String(old.width));
       fresh.setAttribute('height', String(old.height));
@@ -464,7 +513,6 @@ function beginFreshCanvas() {
     ctx = freshCtx;
     return old;
   } catch (err) {
-    // Se este Photoshop não aceitar, volta a desenhar sempre no mesmo canvas
     if (fresh && fresh.parentNode) fresh.parentNode.removeChild(fresh);
     freshCanvasUnsupported = true;
     console.warn('Troca de canvas indisponível; desenhando no mesmo canvas.', err);
@@ -472,10 +520,26 @@ function beginFreshCanvas() {
   }
 }
 
+// Prepara o canvas para um quadro novo, conforme o modo. Devolve o canvas a
+// remover depois (só no modo D).
+function prepareCanvas() {
+  if (drawMode === 'B') {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  } else if (drawMode === 'C') {
+    const w = canvas.width, h = canvas.height;
+    canvas.setAttribute('width', String(w));
+    canvas.setAttribute('height', String(h));
+    ctx = canvas.getContext('2d');
+  } else if (drawMode === 'D') {
+    return beginFreshCanvas();
+  }
+  return null;
+}
+
 // Desenha o círculo inteiro (cerca de 85 formas, todas opacas)
 function drawWheel() {
   diagCount('draws');
-  const oldCanvas = beginFreshCanvas();
+  const oldCanvas = prepareCanvas();
   const L = getLayout();
   const verts = getTriangleVerts(state.hue);
   const angles = getHarmonyAngles(state.hue, state.rule);
@@ -516,8 +580,12 @@ function drawWheel() {
   ctx.lineWidth = 2.5 * L.k;
   ctx.stroke();
 
-  // Quadro pronto: tira o canvas antigo, que estava na frente
-  if (oldCanvas && oldCanvas.parentNode) oldCanvas.parentNode.removeChild(oldCanvas);
+  // Modo D, quadro pronto: tira o canvas anterior, que estava na frente
+  // (o original só é escondido, para poder voltar a ele em outro modo)
+  if (oldCanvas) {
+    if (oldCanvas === originalCanvas) oldCanvas.style.display = 'none';
+    else if (oldCanvas.parentNode) oldCanvas.parentNode.removeChild(oldCanvas);
+  }
 }
 
 /* ── Tamanho do círculo e posição dos botões em arco ── */
@@ -1439,6 +1507,9 @@ $('uiModeTitle').addEventListener('click', () => {
   diag.visible = !diag.visible;
   $('diagBar').style.display = diag.visible ? 'flex' : 'none';
   renderDiag();
+});
+document.querySelectorAll('.diag-mode').forEach(el => {
+  el.addEventListener('click', () => setDrawMode(el.getAttribute('data-mode')));
 });
 $('diagSync').addEventListener('click', () => {
   diag.syncOn = !diag.syncOn;

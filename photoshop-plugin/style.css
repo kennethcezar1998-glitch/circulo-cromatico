@@ -64,6 +64,10 @@ body { position: relative; }
   font-size: 10px;
 }
 .diag-sync { margin-top: 4px; color: #ffcc44; cursor: pointer; text-decoration: underline; }
+.diag-modes { display: flex; flex-direction: column; margin-top: 6px; }
+.diag-modes-title { color: #c9b47a; margin-bottom: 2px; }
+.diag-mode { color: #f0d890; cursor: pointer; padding: 1px 0; }
+.diag-mode.active { color: #2b2410; background-color: #ffcc44; font-weight: bold; padding: 1px 4px; }
 
 /* ── Círculo ── */
 .main-content { display: flex; flex-direction: column; }
