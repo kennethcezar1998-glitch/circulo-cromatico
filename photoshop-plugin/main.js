@@ -197,7 +197,7 @@ function setSliderValue(id, v) {
   v = clamp(v, min, cfg.max);
   sliderValues[id] = v;
   const thumb = $('th_' + id);
-  if (thumb) thumb.style.left = ((v - min) / (cfg.max - min) * 100) + '%';
+  if (thumb) setStyle(thumb, 'left', ((v - min) / (cfg.max - min) * 100).toFixed(2) + '%');
 }
 
 function sliderValueFromPointer(cfg, track, clientX) {
@@ -266,7 +266,6 @@ const canvas = $('colorCanvas');
 const ctx = canvas.getContext('2d');
 let wheelCssSize = 300;   // tamanho do círculo na tela (px CSS)
 let canvasScale = 1;      // px do canvas por px CSS
-const RING_STEP = IN_PS ? 2 : 1; // menos fatias no Photoshop = desenho mais rápido
 
 function getLayout() {
   let w = canvas.width;
@@ -307,15 +306,87 @@ function getHarmonyAngles(baseHue, rule) {
 
 const rgbCss = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
 
-function triPath(v) {
-  ctx.beginPath();
-  ctx.moveTo(v[0].x, v[0].y);
-  ctx.lineTo(v[1].x, v[1].y);
-  ctx.lineTo(v[2].x, v[2].y);
-  ctx.closePath();
+/*
+ * O canvas do Photoshop (UXP) é bem mais limitado que o do navegador:
+ *  - não tem transparência: pixels apagados com clearRect aparecem pretos e
+ *    cores com alfa (rgba) são pintadas como opacas;
+ *  - não tem save/restore, clip nem setLineDash;
+ *  - cada comando aparece na tela assim que é executado, então um redesenho
+ *    com muitas formas "pisca" e mostra o círculo pela metade.
+ * Por isso tudo aqui usa só cores opacas, o fundo é pintado com a cor do
+ * painel, e o círculo inteiro é desenhado com poucas formas (antes eram
+ * ~190 a cada movimento do mouse; agora são ~85).
+ */
+const PANEL_BG = '#222222';
+const HARMONY_LINE = '#c8c8c8';
+const RING_SEGMENTS = 36;   // fatias de 10° do anel, cada uma com degradê (sem emendas)
+const TRI_STRIPS = 40;      // faixas do triângulo (cada uma com degradê opaco)
+
+function polarPoint(L, radius, angleDeg) {
+  const r = (angleDeg - 90) * Math.PI / 180;
+  return { x: L.CX + radius * Math.cos(r), y: L.CY + radius * Math.sin(r) };
 }
 
-// Linha tracejada feita à mão (o canvas do UXP não garante setLineDash)
+function drawRing(L) {
+  const step = 360 / RING_SEGMENTS;
+  const overlap = 0.75; // graus a mais em cada ponta para não sobrar fresta
+  const rMid = (L.R_OUTER + L.R_INNER) / 2;
+  for (let i = 0; i < RING_SEGMENTS; i++) {
+    const a0 = i * step, a1 = a0 + step;
+    const p0 = polarPoint(L, rMid, a0), p1 = polarPoint(L, rMid, a1);
+    const grad = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
+    grad.addColorStop(0, rgbCss(hsv2rgb(getRenderHue(a0), 1, 1)));
+    grad.addColorStop(1, rgbCss(hsv2rgb(getRenderHue(a1), 1, 1)));
+    const r0 = (a0 - overlap - 90) * Math.PI / 180;
+    const r1 = (a1 + overlap - 90) * Math.PI / 180;
+    ctx.beginPath();
+    ctx.arc(L.CX, L.CY, L.R_OUTER, r0, r1);
+    ctx.arc(L.CX, L.CY, L.R_INNER, r1, r0, true);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+}
+
+// Ponto do triângulo para um valor (v) e saturação (s): mesma conta do cursor
+function triPoint(verts, v, s) {
+  const w0 = s * v, w1 = (1 - s) * v, w2 = 1 - v;
+  return {
+    x: w0 * verts[0].x + w1 * verts[1].x + w2 * verts[2].x,
+    y: w0 * verts[0].y + w1 * verts[1].y + w2 * verts[2].y
+  };
+}
+
+/*
+ * Triângulo sem transparência: em cada faixa de valor (v) a cor vai, em linha
+ * reta no RGB, do cinza v·branco até v·matiz. Cada faixa é um degradê opaco.
+ */
+function drawTriangle(verts, hueRgb) {
+  const pad = 0.006; // sobreposição entre faixas
+  for (let i = 0; i < TRI_STRIPS; i++) {
+    const va = Math.max(0, i / TRI_STRIPS - pad);
+    const vb = Math.min(1, (i + 1) / TRI_STRIPS + pad);
+    const vm = (i + 0.5) / TRI_STRIPS;
+    const g0 = triPoint(verts, vm, 0), g1 = triPoint(verts, vm, 1);
+    const grad = ctx.createLinearGradient(g0.x, g0.y, g1.x, g1.y);
+    const gray = Math.round(vm * 255);
+    grad.addColorStop(0, `rgb(${gray},${gray},${gray})`);
+    grad.addColorStop(1, rgbCss(hueRgb.map(c => Math.round(c * vm))));
+
+    const A = triPoint(verts, va, 0), B = triPoint(verts, va, 1);
+    const C = triPoint(verts, vb, 1), D = triPoint(verts, vb, 0);
+    ctx.beginPath();
+    ctx.moveTo(A.x, A.y);
+    ctx.lineTo(B.x, B.y);
+    ctx.lineTo(C.x, C.y);
+    ctx.lineTo(D.x, D.y);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+}
+
+// Linha tracejada feita à mão (o canvas do UXP não tem setLineDash)
 function dashedPolyline(points, closed, dash, gap) {
   const pts = closed ? points.concat([points[0]]) : points;
   ctx.beginPath();
@@ -333,58 +404,29 @@ function dashedPolyline(points, closed, dash, gap) {
   ctx.stroke();
 }
 
+// Desenha o círculo inteiro (cerca de 85 formas, todas opacas)
 function drawWheel() {
-  let L = getLayout();
-  ctx.clearRect(0, 0, L.W, L.H);
+  const L = getLayout();
+  const verts = getTriangleVerts(state.hue);
+  const angles = getHarmonyAngles(state.hue, state.rule);
+  const ringCenter = (L.R_OUTER + L.R_INNER) / 2;
 
-  // Anel de matizes
-  for (let i = 0; i < 360; i += RING_STEP) {
-    let radStart = (i - 90) * Math.PI / 180;
-    let radEnd = (i + RING_STEP + 0.5 - 90) * Math.PI / 180;
-    ctx.beginPath();
-    ctx.arc(L.CX, L.CY, L.R_OUTER, radStart, radEnd);
-    ctx.arc(L.CX, L.CY, L.R_INNER, radEnd, radStart, true);
-    ctx.closePath();
-    ctx.fillStyle = rgbCss(hsv2rgb(getRenderHue(i), 1, 1));
-    ctx.fill();
-  }
+  // Fundo com a cor do painel (no UXP, clearRect deixaria tudo preto)
+  ctx.fillStyle = PANEL_BG;
+  ctx.fillRect(0, 0, L.W, L.H);
 
-  // Triângulo de saturação/valor (três preenchimentos do mesmo caminho, sem clip)
-  let verts = getTriangleVerts(state.hue);
-  triPath(verts);
-  ctx.fillStyle = rgbCss(hsv2rgb(getRenderHue(state.hue), 1, 1));
-  ctx.fill();
-
-  let gradW = ctx.createLinearGradient(verts[1].x, verts[1].y, (verts[0].x + verts[2].x) / 2, (verts[0].y + verts[2].y) / 2);
-  gradW.addColorStop(0, 'rgba(255,255,255,1)');
-  gradW.addColorStop(1, 'rgba(255,255,255,0)');
-  triPath(verts);
-  ctx.fillStyle = gradW;
-  ctx.fill();
-
-  let gradB = ctx.createLinearGradient(verts[2].x, verts[2].y, (verts[0].x + verts[1].x) / 2, (verts[0].y + verts[1].y) / 2);
-  gradB.addColorStop(0, 'rgba(0,0,0,1)');
-  gradB.addColorStop(1, 'rgba(0,0,0,0)');
-  triPath(verts);
-  ctx.fillStyle = gradB;
-  ctx.fill();
+  drawRing(L);
+  drawTriangle(verts, hsv2rgb(getRenderHue(state.hue), 1, 1));
 
   // Linhas e marcadores da harmonia
-  let angles = getHarmonyAngles(state.hue, state.rule);
-  let ringCenter = (L.R_OUTER + L.R_INNER) / 2;
-  const pointAt = (ang) => {
-    let r = (ang - 90) * Math.PI / 180;
-    return { x: L.CX + ringCenter * Math.cos(r), y: L.CY + ringCenter * Math.sin(r) };
-  };
-
   if (angles.length > 1 && state.rule !== 'mono') {
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.strokeStyle = HARMONY_LINE;
     ctx.lineWidth = 1.5 * L.k;
-    dashedPolyline(angles.map(pointAt), ['triadic', 'tetradic', 'split'].includes(state.rule), 4 * L.k, 4 * L.k);
+    dashedPolyline(angles.map(a => polarPoint(L, ringCenter, a)),
+      ['triadic', 'tetradic', 'split'].includes(state.rule), 4 * L.k, 4 * L.k);
   }
-
   angles.forEach((ang) => {
-    const p = pointAt(ang);
+    const p = polarPoint(L, ringCenter, ang);
     ctx.beginPath();
     ctx.arc(p.x, p.y, (ang === state.hue ? 10 : 7) * L.k, 0, Math.PI * 2);
     ctx.fillStyle = rgbCss(hsv2rgb(getRenderHue(ang), 1, 1));
@@ -395,14 +437,9 @@ function drawWheel() {
   });
 
   // Cursor dentro do triângulo
-  let w0 = state.sat * state.val;
-  let w1 = (1 - state.sat) * state.val;
-  let w2 = 1 - state.val;
-  let cursorX = w0 * verts[0].x + w1 * verts[1].x + w2 * verts[2].x;
-  let cursorY = w0 * verts[0].y + w1 * verts[1].y + w2 * verts[2].y;
-
+  const cur = triPoint(verts, state.val, state.sat);
   ctx.beginPath();
-  ctx.arc(cursorX, cursorY, 6 * L.k, 0, Math.PI * 2);
+  ctx.arc(cur.x, cur.y, 6 * L.k, 0, Math.PI * 2);
   ctx.fillStyle = rgbCss(hsv2rgb(getRenderHue(state.hue), state.sat, state.val));
   ctx.fill();
   ctx.strokeStyle = '#ffffff';
@@ -430,7 +467,8 @@ function layoutWheel() {
   const dpr = IN_PS ? 1 : (window.devicePixelRatio || 1);
   const px = Math.round(size * dpr);
   if (canvas.width !== px) { canvas.width = px; canvas.height = px; }
-  canvasScale = px / size;
+  // No UXP width/height podem ser só leitura: usa o tamanho real do canvas
+  canvasScale = canvas.width / size;
 
   const pad = Math.ceil(size * 0.05 + 18);
   section.style.paddingTop = pad + 'px';
@@ -500,19 +538,47 @@ function compactIconSvg(compact) {
 /* ════════════════════════════════════════════════════════════════
  *  PALETAS
  * ════════════════════════════════════════════════════════════════ */
-function makeSwatch(className, hex, titlePrefix) {
-  const div = document.createElement('div');
-  div.className = className;
-  div.style.backgroundColor = hex;
-  div.title = (titlePrefix || '') + hex;
-  div.addEventListener('click', (e) => swatchClick(e, hex));
-  return div;
+/*
+ * Os elementos das paletas são criados uma única vez e depois só recoloridos.
+ * Recriar elementos a cada movimento do mouse obriga o UXP a refazer o layout
+ * do painel inteiro, o que deixa a rolagem e o arraste travados.
+ */
+function setStyle(el, prop, value) {
+  if (!el) return;
+  if (!el._styleCache) el._styleCache = {};
+  if (el._styleCache[prop] === value) return;
+  el._styleCache[prop] = value;
+  el.style[prop] = value;
+}
+
+function setHtml(el, html) {
+  if (el && el._html !== html) { el._html = html; el.innerHTML = html; }
+}
+
+function setSwatchColor(el, hex) {
+  if (el._hex === hex) return;
+  el._hex = hex;
+  el.style.backgroundColor = hex;
+  el.title = hex;
+}
+
+function swatchPool(container, className, count) {
+  if (!container._pool) container._pool = [];
+  const pool = container._pool;
+  while (pool.length < count) {
+    const el = document.createElement('div');
+    el.className = className;
+    el.addEventListener('click', (e) => swatchClick(e, el._hex));
+    container.appendChild(el);
+    pool.push(el);
+  }
+  pool.forEach((el, i) => setStyle(el, 'display', i < count ? 'block' : 'none'));
+  return pool;
 }
 
 function generate9ColorPalette() {
   const container = $('palette9Grid');
   if (!container) return;
-  container.innerHTML = '';
 
   let h = state.hue, s = state.sat, v = state.val;
   let colors = [];
@@ -572,10 +638,8 @@ function generate9ColorPalette() {
       break;
   }
 
-  colors.forEach(c => {
-    const hex = rgb2hex(...hsv2rgb(getRenderHue(c.h), c.s, c.v));
-    container.appendChild(makeSwatch('p9-swatch', hex));
-  });
+  const pool = swatchPool(container, 'p9-swatch', colors.length);
+  colors.forEach((c, i) => setSwatchColor(pool[i], rgb2hex(...hsv2rgb(getRenderHue(c.h), c.s, c.v))));
 }
 
 function shiftHueTowards(currentHue, targetHue, weight) {
@@ -584,10 +648,52 @@ function shiftHueTowards(currentHue, targetHue, weight) {
   return (currentHue + (diff * weight) + 360) % 360;
 }
 
+// Cria uma vez as 5 caixas de Luz e Sombra (amostra, rótulo e campo HEX)
+let lsItems = null;
+function buildLightShadowItems(container) {
+  lsItems = ['Brilho', 'Luz', 'Base', 'Sombra', 'Oclusão'].map(label => {
+    const item = { currentHex: null };
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'ls-swatch-container';
+
+    const swatch = document.createElement('div');
+    swatch.className = 'ls-swatch';
+    swatch.addEventListener('click', (e) => swatchClick(e, item.currentHex));
+
+    const lbl = document.createElement('div');
+    lbl.className = 'ls-label';
+    lbl.textContent = label;
+
+    const hexInput = document.createElement('input');
+    hexInput.type = 'text';
+    hexInput.className = 'ls-hex';
+    hexInput.title = 'Clique para editar este hexadecimal';
+
+    item.show = (hex) => {
+      item.currentHex = hex;
+      setSwatchColor(swatch, hex);
+      if (!hexInput._editing && hexInput.value !== hex) hexInput.value = hex;
+    };
+    // Edição manual: ajusta só esta caixa (a cor do círculo não muda)
+    bindEditable(hexInput, (text) => {
+      const newHex = parseHex(text);
+      if (!newHex) return false;
+      item.show(newHex);
+    }, () => { hexInput.value = item.currentHex; });
+
+    wrapper.appendChild(swatch);
+    wrapper.appendChild(lbl);
+    wrapper.appendChild(hexInput);
+    container.appendChild(wrapper);
+    return item;
+  });
+}
+
 function generateLightShadowPalette() {
   const container = $('lsPalette');
   if (!container) return;
-  container.innerHTML = '';
+  if (!lsItems) buildLightShadowItems(container);
   let h = state.hue, s = state.sat, v = state.val;
 
   const TARGET_SHADOW = 240, TARGET_LIGHT = 60, TARGET_COMPLEMENTARY = (h + 180) % 360;
@@ -599,54 +705,18 @@ function generateLightShadowPalette() {
     { label: 'Oclusão', h: shiftHueTowards(h, TARGET_COMPLEMENTARY, 0.4), s: Math.max(0, s * 0.5), v: Math.max(0.05, v - 0.65) }
   ];
 
-  palette.forEach(item => {
-    const hex = rgb2hex(...hsv2rgb(getRenderHue(item.h), item.s, item.v));
-    let currentHex = hex;
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'ls-swatch-container';
-
-    const swatch = document.createElement('div');
-    swatch.className = 'ls-swatch';
-    swatch.style.backgroundColor = hex;
-    swatch.title = hex;
-    swatch.addEventListener('click', (e) => swatchClick(e, currentHex));
-
-    const lbl = document.createElement('div');
-    lbl.className = 'ls-label';
-    lbl.textContent = item.label;
-
-    const hexInput = document.createElement('input');
-    hexInput.type = 'text';
-    hexInput.className = 'ls-hex';
-    hexInput.value = hex;
-    hexInput.title = 'Clique para editar este hexadecimal';
-    // Edição manual: ajusta só esta caixa (a cor do círculo não muda)
-    bindEditable(hexInput, (text) => {
-      const newHex = parseHex(text);
-      if (!newHex) return false;
-      currentHex = newHex;
-      hexInput.value = newHex;
-      swatch.style.backgroundColor = newHex;
-      swatch.title = newHex;
-    }, () => { hexInput.value = currentHex; });
-
-    wrapper.appendChild(swatch);
-    wrapper.appendChild(lbl);
-    wrapper.appendChild(hexInput);
-    container.appendChild(wrapper);
-  });
+  palette.forEach((item, i) => lsItems[i].show(rgb2hex(...hsv2rgb(getRenderHue(item.h), item.s, item.v))));
 
   const insightBox = $('theoryInsight');
   if (insightBox) {
     if (h >= 15 && h <= 45) {
-      insightBox.innerHTML = '<strong>Insight Corkit (Pág. 56):</strong> O Marrom e o Laranja compartilham a <em>mesma Matiz e Saturação</em>! A única diferença real está no Valor/Tom (Marrom é apenas laranja escuro).';
+      setHtml(insightBox, '<strong>Insight Corkit (Pág. 56):</strong> O Marrom e o Laranja compartilham a <em>mesma Matiz e Saturação</em>! A única diferença real está no Valor/Tom (Marrom é apenas laranja escuro).');
     } else if (h >= 210 && h <= 270) {
-      insightBox.innerHTML = '<strong>Insight Corkit (Pág. 87):</strong> A matiz Azul em saturação extrema é <em>intrinsecamente muito escura</em> (próxima ao preto). Adicionar azul na área de oclusão mantém o peso tonal de forma estética!';
+      setHtml(insightBox, '<strong>Insight Corkit (Pág. 87):</strong> A matiz Azul em saturação extrema é <em>intrinsecamente muito escura</em> (próxima ao preto). Adicionar azul na área de oclusão mantém o peso tonal de forma estética!');
     } else if (h >= 46 && h <= 80) {
-      insightBox.innerHTML = '<strong>Insight Corkit (Pág. 87):</strong> A matiz Amarela em saturação máxima é <em>intrinsecamente muito clara</em> (quase branca). Leve isso em consideração ao calcular degradês para não quebrar o tom.';
+      setHtml(insightBox, '<strong>Insight Corkit (Pág. 87):</strong> A matiz Amarela em saturação máxima é <em>intrinsecamente muito clara</em> (quase branca). Leve isso em consideração ao calcular degradês para não quebrar o tom.');
     } else {
-      insightBox.innerHTML = '<strong>Insight Corkit (Pág. 44):</strong> Toda cor é um \'liquidificador\' de 4 propriedades fundamentais: <em>Valor, Matiz, Saturação e Mancha</em>. Mude de tom ou matiz em vez de apenas escurecer para manter sua arte \'viva\'!';
+      setHtml(insightBox, '<strong>Insight Corkit (Pág. 44):</strong> Toda cor é um \'liquidificador\' de 4 propriedades fundamentais: <em>Valor, Matiz, Saturação e Mancha</em>. Mude de tom ou matiz em vez de apenas escurecer para manter sua arte \'viva\'!');
     }
   }
 }
@@ -655,8 +725,7 @@ function generateLightShadowPalette() {
  *  ATUALIZAÇÃO DA INTERFACE
  * ════════════════════════════════════════════════════════════════ */
 function setBg(id, css) {
-  const el = $(id);
-  if (el) el.style.background = css;
+  setStyle($(id), 'background', css);
 }
 
 function updateSlidersUI() {
@@ -713,6 +782,8 @@ function updateSlidersUI() {
 
 function updateUIButtons() {
   const toggleBtn = $('btnModeToggle');
+  if (toggleBtn._mode === state.colorMode) return; // nada mudou
+  toggleBtn._mode = state.colorMode;
   const title = $('uiModeTitle');
   toggleBtn.innerHTML = modeIconSvg(state.colorMode);
   if (state.colorMode === 'RYB') {
@@ -734,25 +805,23 @@ function updateAll(opts) {
   updateUIButtons();
 
   const hex = currentHex();
-  $('mainSwatch').style.backgroundColor = hex;
+  setStyle($('mainSwatch'), 'backgroundColor', hex);
 
   updateSlidersUI();
 
-  const harmContainer = $('harmonyContainer');
-  harmContainer.innerHTML = '';
+  let harmHexes;
   if (state.rule === 'mono') {
     let sVals = [Math.max(0, state.sat - 0.4), state.sat, Math.min(1, state.sat + 0.4)];
     let vVals = [Math.max(0.2, state.val - 0.3), state.val, Math.min(1, state.val + 0.3)];
-    sVals.forEach((s, i) => {
-      harmContainer.appendChild(makeSwatch('harm-sw', rgb2hex(...hsv2rgb(getRenderHue(state.hue), s, vVals[i]))));
-    });
+    harmHexes = sVals.map((s, i) => rgb2hex(...hsv2rgb(getRenderHue(state.hue), s, vVals[i])));
   } else {
     let angles = getHarmonyAngles(state.hue, state.rule);
-    angles.forEach(ang => {
-      if (ang === state.hue && angles.length > 1) return;
-      harmContainer.appendChild(makeSwatch('harm-sw', rgb2hex(...hsv2rgb(getRenderHue(ang), state.sat, state.val))));
-    });
+    harmHexes = angles
+      .filter(ang => !(ang === state.hue && angles.length > 1))
+      .map(ang => rgb2hex(...hsv2rgb(getRenderHue(ang), state.sat, state.val)));
   }
+  const harmPool = swatchPool($('harmonyContainer'), 'harm-sw', harmHexes.length);
+  harmHexes.forEach((h, i) => setSwatchColor(harmPool[i], h));
 
   const bgHex = storedColorToHex(secondaryColor);
   updateFgBgUI(hex, bgHex);
@@ -765,12 +834,20 @@ function updateAll(opts) {
   lastWheelBg = bgHex;
 }
 
-// Agrupa várias mudanças seguidas (ex.: arrastar) num único redesenho por quadro
+// Agrupa várias mudanças seguidas (ex.: arrastar) num único redesenho.
+// No Photoshop limita a ~30 quadros por segundo: o painel não acompanha mais que isso.
+const MIN_FRAME_MS = IN_PS ? 33 : 0;
 let updateQueued = false;
+let lastUpdateAt = 0;
 function scheduleUpdate() {
   if (updateQueued) return;
   updateQueued = true;
-  nextFrame(() => { updateQueued = false; updateAll(); });
+  const wait = Math.max(0, MIN_FRAME_MS - (Date.now() - lastUpdateAt));
+  const run = () => { updateQueued = false; lastUpdateAt = Date.now(); updateAll(); };
+  // No Photoshop usa só setTimeout: o requestAnimationFrame do UXP não é garantido
+  if (IN_PS) setTimeout(run, wait);
+  else if (wait > 0) setTimeout(() => nextFrame(run), wait);
+  else nextFrame(run);
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -820,9 +897,11 @@ onPointer(canvas, 'down', (e) => {
 });
 
 function endDrags() {
+  const wasDragging = isInteracting();
   state.isDraggingRing = false;
   state.isDraggingTri = false;
   sliderDrag = null;
+  if (wasDragging) schedulePushFlush(); // manda a cor final sem esperar
 }
 
 onPointer(document, 'move', (e) => {
@@ -1104,6 +1183,8 @@ function hexToStoredColor(hex) {
 
 function updateFgBgUI(fgHex, bgHex) {
   const fg = $('fgSwatch'), bg = $('bgSwatch');
+  if (fg._hex === fgHex && bg._hex === bgHex) return;
+  fg._hex = fgHex; bg._hex = bgHex;
   fg.style.backgroundColor = fgHex;
   bg.style.backgroundColor = bgHex;
   fg.title = 'Cor principal ' + fgHex + ' (clique para copiar)';
@@ -1167,13 +1248,27 @@ function syncToPhotoshop(fgHex, bgHex) {
 function pushToPhotoshop(job) {
   if (!IN_PS) return;
   pendingPush = Object.assign(pendingPush || {}, job);
-  if (!pushBusy) flushPush();
+  schedulePushFlush();
 }
 
-// Envia uma alteração de cada vez; durante o arraste só a mais recente é enviada.
+/*
+ * Cada envio usa executeAsModal, que bloqueia o Photoshop por um instante.
+ * Enviar a cada movimento do mouse deixava o painel piscando; durante o
+ * arraste o envio é espaçado, e ao soltar o mouse a cor final vai na hora.
+ */
+const PUSH_INTERVAL_MS = 150;
+let pushTimer = null, lastPushAt = 0;
+function schedulePushFlush() {
+  if (!pendingPush || pushBusy || pushTimer) return;
+  const wait = isInteracting() ? Math.max(0, PUSH_INTERVAL_MS - (Date.now() - lastPushAt)) : 0;
+  pushTimer = setTimeout(() => { pushTimer = null; flushPush(); }, wait);
+}
+
+// Envia uma alteração por vez; se várias se acumularem, só a mais recente vai.
 async function flushPush() {
+  if (pushBusy || !pendingPush) return;
   pushBusy = true;
-  while (pendingPush) {
+  {
     const job = pendingPush;
     pendingPush = null;
     try {
@@ -1191,11 +1286,14 @@ async function flushPush() {
       setPsStatus(false, 'O Photoshop está ocupado (há alguma caixa de diálogo aberta?)');
     }
   }
+  lastPushAt = Date.now();
   pushBusy = false;
+  schedulePushFlush(); // se chegou outra cor enquanto enviava
 }
 
 function pullFromPhotoshop() {
   if (!IN_PS || pushBusy || pendingPush || isInteracting()) return;
+  if (Date.now() - lastScrollAt < 800) return; // não atrapalha a rolagem
   let now;
   try { now = readPhotoshopColors(); } catch (err) { return; }
   let changed = false;
@@ -1217,8 +1315,10 @@ function setPsStatus(ok, msg) {
     el.title = 'Modo navegador: sem ligação com o Photoshop';
     return;
   }
-  el.className = ok ? 'ps-status on' : 'ps-status';
-  el.title = ok ? 'Ligado às cores do Photoshop' : (msg || 'Sem ligação com o Photoshop');
+  const cls = ok ? 'ps-status on' : 'ps-status';
+  const title = ok ? 'Ligado às cores do Photoshop' : (msg || 'Sem ligação com o Photoshop');
+  if (el.className !== cls) el.className = cls;
+  if (el.title !== title) el.title = title;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -1257,7 +1357,12 @@ if (IN_PS) {
 }
 updateAll({ noPush: true });
 
+// Rolagem: anota quando aconteceu, para pausar a leitura das cores do Photoshop
+let lastScrollAt = 0;
+$('appContainer').addEventListener('scroll', () => { lastScrollAt = Date.now(); });
+
 setInterval(() => {
+  if (Date.now() - lastScrollAt < 800) return;
   checkResize();
   pullFromPhotoshop();
-}, 400);
+}, IN_PS ? 600 : 400);
