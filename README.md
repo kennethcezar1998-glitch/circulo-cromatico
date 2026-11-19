@@ -49,6 +49,7 @@ Baixe [`circulo cromatico ativo .html`](circulo%20cromatico%20ativo%20.html) e a
 | `empacotar-plugin.ps1` | Gera o `.ccx` a partir de `photoshop-plugin/` |
 | `COMO INSTALAR.md` | Passo a passo de instalação do plugin |
 | `docs/` | Imagens do README |
+| `LICENSE` | Licença MIT |
 
 ## Desenvolvimento
 
@@ -77,3 +78,7 @@ O arquivo sai em `dist/Circulo-Cromatico.ccx`.
 ### Observações sobre o UXP
 
 O Photoshop não roda os painéis num navegador completo, então o plugin evita recursos que o UXP não suporta: CSS grid, `conic-gradient`, pseudo-elementos, `transform`, `contenteditable` e `clip()`/`setLineDash()` no canvas. Por isso os ícones são SVG, os sliders são desenhados à mão e o triângulo é pintado sem recorte.
+
+## Licença
+
+Distribuído sob a [licença MIT](LICENSE): você pode usar, copiar, modificar e redistribuir o código, inclusive em projetos comerciais, desde que mantenha o aviso de copyright e a licença.
