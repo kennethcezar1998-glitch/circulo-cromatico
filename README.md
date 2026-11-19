@@ -1,10 +1,16 @@
 # Círculo Cromático RYB
 
 Círculo cromático com harmonias, paletas e sugestão de luz e sombra para quem pinta e ilustra.
-Funciona como **[página web](https://kennethcezar1998-glitch.github.io/circulo-cromatico/)** (um único arquivo HTML) e como **painel para o Photoshop**, ligado às cores de primeiro plano e plano de fundo.
+Funciona como **[página web](https://kennethcezar1998-glitch.github.io/circulo-cromatico/)** (um único arquivo HTML) e como **[painel para o Photoshop](https://kennethcezar1998-glitch.github.io/circulo-cromatico/plugin/)**, ligado às cores de primeiro plano e plano de fundo.
 
 <p align="center">
-  <img src="docs/painel.png" alt="Painel do Círculo Cromático no esquema de tríade" width="320">
+  <a href="https://kennethcezar1998-glitch.github.io/circulo-cromatico/plugin/"><img src="docs/painel.png" alt="Painel do Círculo Cromático no esquema de tríade" width="320"></a>
+</p>
+
+<p align="center">
+  <a href="https://kennethcezar1998-glitch.github.io/circulo-cromatico/"><strong>Usar a versão web</strong></a> ·
+  <a href="https://kennethcezar1998-glitch.github.io/circulo-cromatico/plugin/"><strong>Página do plugin</strong></a> ·
+  <a href="https://github.com/kennethcezar1998-glitch/circulo-cromatico/releases/latest/download/Circulo-Cromatico.ccx"><strong>Baixar o plugin (.ccx)</strong></a>
 </p>
 
 ## Recursos
@@ -21,7 +27,7 @@ Funciona como **[página web](https://kennethcezar1998-glitch.github.io/circulo-
 ## Plugin para o Photoshop
 
 O painel funciona no **Photoshop 2024 (versão 25) ou mais novo**, no Windows e no Mac.
-Experimente antes de instalar na [**prévia interativa do painel**](https://kennethcezar1998-glitch.github.io/circulo-cromatico/plugin/).
+Experimente antes de instalar na [**página do plugin**](https://kennethcezar1998-glitch.github.io/circulo-cromatico/plugin/), que tem uma prévia interativa do painel.
 
 - Arrastar no círculo muda a **cor de primeiro plano** do Photoshop na hora; a cor secundária vira a de **plano de fundo**.
 - Conta-gotas, seletor de cores e os atalhos `X` e `D` do Photoshop atualizam o círculo automaticamente.
