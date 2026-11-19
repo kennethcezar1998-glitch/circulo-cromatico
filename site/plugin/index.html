@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Círculo Cromático · Plugin para Photoshop</title>
+<link rel="icon" type="image/png" href="painel/icons/plugin@2x.png">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #141414;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 20px;
+  }
+  .layout { display: flex; gap: 40px; align-items: flex-start; max-width: 960px; width: 100%; }
+  .info { flex: 1; min-width: 0; padding-top: 8px; }
+  .info img { width: 56px; height: 56px; margin-bottom: 14px; }
+  h1 { font-size: 26px; line-height: 1.2; margin-bottom: 8px; color: #fff; }
+  .lead { color: #aaa; margin-bottom: 22px; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 26px; }
+  .btn {
+    display: inline-block; padding: 10px 16px; border-radius: 6px;
+    text-decoration: none; font-weight: 600; font-size: 14px;
+    border: 1px solid #3a3a3a; color: #e0e0e0; background: #222;
+  }
+  .btn:hover { border-color: #666; }
+  .btn.primary { background: #00bcff; border-color: #00bcff; color: #001a24; }
+  .btn.primary:hover { background: #33c9ff; }
+  h2 { font-size: 15px; color: #fff; margin: 22px 0 8px; }
+  ul, ol { padding-left: 20px; color: #c8c8c8; }
+  li { margin-bottom: 6px; }
+  .note {
+    margin-top: 22px; padding: 10px 14px; border-radius: 6px;
+    background: #1d1d1d; border: 1px dashed #3a3a3a; color: #999; font-size: 13px;
+  }
+  .note strong { color: #ddd; }
+  a { color: #4fd0ff; }
+  .panel-frame {
+    flex-shrink: 0;
+    width: 320px;
+    height: min(1000px, calc(100vh - 64px));
+    min-height: 560px;
+    border: 1px solid #333;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #222;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+  }
+  .panel-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .panel-caption { text-align: center; color: #777; font-size: 12px; margin-top: 8px; }
+  @media (max-width: 760px) {
+    .layout { flex-direction: column-reverse; align-items: center; }
+    .info { padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div>
+    <div class="panel-frame">
+      <iframe src="painel/index.html" allow="clipboard-write" title="Prévia do painel do Círculo Cromático"></iframe>
+    </div>
+    <div class="panel-caption">Prévia interativa do painel</div>
+  </div>
+
+  <div class="info">
+    <img src="painel/icons/plugin@2x.png" alt="">
+    <h1>Círculo Cromático RYB<br>para Photoshop</h1>
+    <p class="lead">Um painel com círculo RYB/RGB, harmonias, paletas e sugestão de luz e sombra, ligado às cores de primeiro plano e plano de fundo do Photoshop.</p>
+
+    <div class="buttons">
+      <a class="btn primary" href="https://github.com/kennethcezar1998-glitch/circulo-cromatico/releases/latest/download/Circulo-Cromatico.ccx">Baixar o plugin (.ccx)</a>
+      <a class="btn" href="como-instalar.html">Como instalar</a>
+      <a class="btn" href="../">Versão web</a>
+      <a class="btn" href="https://github.com/kennethcezar1998-glitch/circulo-cromatico">Código no GitHub</a>
+    </div>
+
+    <h2>Instalação rápida</h2>
+    <ol>
+      <li>Baixe o arquivo <strong>Circulo-Cromatico.ccx</strong>.</li>
+      <li>Com o Photoshop fechado, dê dois cliques nele e confirme no aplicativo Creative Cloud.</li>
+      <li>No Photoshop, abra <strong>Plug-ins › Círculo Cromático RYB › Círculo Cromático</strong>.</li>
+    </ol>
+    <p style="color:#999; margin-top:6px;">Requer Photoshop 2024 (versão 25) ou mais novo, no Windows ou no Mac.</p>
+
+    <h2>No Photoshop</h2>
+    <ul>
+      <li>Arrastar no círculo muda a cor de primeiro plano na hora.</li>
+      <li>Conta-gotas, seletor de cores e os atalhos <code>X</code> e <code>D</code> atualizam o círculo.</li>
+      <li>Clique numa amostra para usá-la como cor de primeiro plano; Alt + clique copia o HEX.</li>
+    </ul>
+
+    <p class="note"><strong>Sobre a prévia:</strong> aqui no navegador o painel funciona por completo, mas sem a ligação com o Photoshop. Clicar numa amostra copia o HEX.</p>
+  </div>
+</div>
+</body>
+</html>

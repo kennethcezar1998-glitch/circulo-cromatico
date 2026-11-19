@@ -21,6 +21,7 @@ Funciona como **[página web](https://kennethcezar1998-glitch.github.io/circulo-
 ## Plugin para o Photoshop
 
 O painel funciona no **Photoshop 2024 (versão 25) ou mais novo**, no Windows e no Mac.
+Experimente antes de instalar na [**prévia interativa do painel**](https://kennethcezar1998-glitch.github.io/circulo-cromatico/plugin/).
 
 - Arrastar no círculo muda a **cor de primeiro plano** do Photoshop na hora; a cor secundária vira a de **plano de fundo**.
 - Conta-gotas, seletor de cores e os atalhos `X` e `D` do Photoshop atualizam o círculo automaticamente.
@@ -51,7 +52,8 @@ Ou baixe [`circulo cromatico ativo .html`](circulo%20cromatico%20ativo%20.html) 
 | `empacotar-plugin.ps1` | Gera o `.ccx` a partir de `photoshop-plugin/` |
 | `COMO INSTALAR.md` | Passo a passo de instalação do plugin |
 | `docs/` | Imagens do README |
-| `.github/workflows/pages.yml` | Publica a versão web no GitHub Pages a cada alteração |
+| `site/` | Página do plugin no GitHub Pages (`/plugin/`), com a prévia do painel |
+| `.github/workflows/pages.yml` | Publica a versão web e a página do plugin no GitHub Pages a cada alteração |
 | `LICENSE` | Licença MIT |
 
 ## Desenvolvimento

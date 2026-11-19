@@ -1,13 +1,19 @@
-# Publica a versão web (circulo cromatico ativo .html) no GitHub Pages.
-# O arquivo vira o index.html do site, então o endereço fica limpo:
+# Publica no GitHub Pages:
+#   /          → versão web (circulo cromatico ativo .html vira o index.html)
+#   /plugin/   → página do plugin com prévia interativa do painel
+#   /plugin/painel/            → os arquivos de photoshop-plugin/
+#   /plugin/como-instalar.html → o guia de instalação
 # https://kennethcezar1998-glitch.github.io/circulo-cromatico/
-name: Publicar versão web
+name: Publicar site
 
 on:
   push:
     branches: [master]
     paths:
       - 'circulo cromatico ativo .html'
+      - 'photoshop-plugin/**'
+      - 'site/**'
+      - 'dist/COMO INSTALAR.html'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -31,9 +37,13 @@ jobs:
 
       - name: Montar o site
         run: |
-          mkdir _site
+          mkdir -p _site/plugin/painel
           cp "circulo cromatico ativo .html" _site/index.html
+          cp -r site/. _site/
+          cp -r photoshop-plugin/. _site/plugin/painel/
+          cp "dist/COMO INSTALAR.html" _site/plugin/como-instalar.html
           touch _site/.nojekyll
+          find _site -type f | sort
 
       - uses: actions/configure-pages@v6
 
