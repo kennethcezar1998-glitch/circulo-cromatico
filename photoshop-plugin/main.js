@@ -167,6 +167,36 @@ const SLIDER_CONFIGS = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+/* ════════════════════════════════════════════════════════════════
+ *  DIAGNÓSTICO
+ *  Clique no título do painel para mostrar uma barra com contadores do que
+ *  o plugin está fazendo. A barra só é atualizada quando algum contador
+ *  muda, para ela mesma não provocar redesenhos.
+ * ════════════════════════════════════════════════════════════════ */
+const diag = {
+  draws: 0,        // redesenhos do círculo (drawWheel)
+  pushes: 0,       // envios de cor ao Photoshop (executeAsModal)
+  reads: 0,        // leituras das cores do Photoshop
+  external: 0,     // mudanças vindas do Photoshop aplicadas ao círculo
+  resizes: 0,      // vezes que o círculo foi redimensionado
+  syncOn: true,    // ligação com o Photoshop (pode ser desligada na barra)
+  visible: false
+};
+let diagTimer = null;
+function diagCount(key) {
+  diag[key]++;
+  if (diag.visible && !diagTimer) diagTimer = setTimeout(renderDiag, 300);
+}
+function renderDiag() {
+  diagTimer = null;
+  const bar = $('diagBar');
+  if (!bar || !diag.visible) return;
+  const text = `desenhos ${diag.draws} · envios ${diag.pushes} · leituras ${diag.reads} · externas ${diag.external} · redimens. ${diag.resizes}`;
+  if ($('diagText').textContent !== text) $('diagText').textContent = text;
+  const sync = diag.syncOn ? 'PS: ligado (clique p/ desligar)' : 'PS: DESLIGADO (clique p/ ligar)';
+  if ($('diagSync').textContent !== sync) $('diagSync').textContent = sync;
+}
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 const nextFrame = (typeof requestAnimationFrame === 'function')
   ? (fn) => requestAnimationFrame(fn)
@@ -406,6 +436,7 @@ function dashedPolyline(points, closed, dash, gap) {
 
 // Desenha o círculo inteiro (cerca de 85 formas, todas opacas)
 function drawWheel() {
+  diagCount('draws');
   const L = getLayout();
   const verts = getTriangleVerts(state.hue);
   const angles = getHarmonyAngles(state.hue, state.rule);
@@ -1246,7 +1277,7 @@ function syncToPhotoshop(fgHex, bgHex) {
 }
 
 function pushToPhotoshop(job) {
-  if (!IN_PS) return;
+  if (!IN_PS || !diag.syncOn) return;
   pendingPush = Object.assign(pendingPush || {}, job);
   schedulePushFlush();
 }
@@ -1272,6 +1303,7 @@ async function flushPush() {
     const job = pendingPush;
     pendingPush = null;
     try {
+      diagCount('pushes');
       await ps.core.executeAsModal(async () => {
         if (job.fg) ps.app.foregroundColor = makeSolidColor(job.fg);
         if (job.bg) ps.app.backgroundColor = makeSolidColor(job.bg);
@@ -1292,9 +1324,10 @@ async function flushPush() {
 }
 
 function pullFromPhotoshop() {
-  if (!IN_PS || pushBusy || pendingPush || isInteracting()) return;
+  if (!IN_PS || !diag.syncOn || pushBusy || pendingPush || isInteracting()) return;
   if (Date.now() - lastScrollAt < 800) return; // não atrapalha a rolagem
   let now;
+  diagCount('reads');
   try { now = readPhotoshopColors(); } catch (err) { return; }
   let changed = false;
   if (now.fg !== lastReadFg) {
@@ -1305,7 +1338,7 @@ function pullFromPhotoshop() {
     lastReadBg = now.bg;
     if (now.bg !== storedColorToHex(secondaryColor)) { secondaryColor = hexToStoredColor(now.bg); changed = true; }
   }
-  if (changed) updateAll({ noPush: true });
+  if (changed) { diagCount('external'); updateAll({ noPush: true }); }
 }
 
 function setPsStatus(ok, msg) {
@@ -1329,6 +1362,7 @@ function checkResize() {
   const w = $('wheelSection').clientWidth;
   if (w && w !== lastSectionWidth) {
     lastSectionWidth = w;
+    diagCount('resizes');
     layoutWheel();
     updateAll({ noPush: true });
     if (window._updateTabsFade) window._updateTabsFade();
@@ -1356,6 +1390,19 @@ if (IN_PS) {
   setPsStatus(false);
 }
 updateAll({ noPush: true });
+
+$('uiModeTitle').addEventListener('click', () => {
+  diag.visible = !diag.visible;
+  $('diagBar').style.display = diag.visible ? 'flex' : 'none';
+  renderDiag();
+});
+$('diagSync').addEventListener('click', () => {
+  diag.syncOn = !diag.syncOn;
+  // Ao religar, a próxima leitura adota as cores atuais do Photoshop
+  if (diag.syncOn) { lastReadFg = null; lastReadBg = null; }
+  setPsStatus(diag.syncOn, 'Ligação desligada na barra de diagnóstico');
+  renderDiag();
+});
 
 // Rolagem: anota quando aconteceu, para pausar a leitura das cores do Photoshop
 let lastScrollAt = 0;

@@ -50,6 +50,20 @@ body { position: relative; }
 .header-title { font-weight: 700; font-size: 11px; letter-spacing: 0.08em; color: var(--text-muted); text-transform: uppercase; }
 .ps-status { font-size: 10px; color: #555555; }
 .ps-status.on { color: #27c93f; }
+.header-title { cursor: pointer; }
+
+/* Barra de diagnóstico (aparece ao clicar no título) */
+.diag-bar {
+  display: none;
+  flex-direction: column;
+  padding: 6px 12px;
+  background-color: #2b2410;
+  border-bottom: 1px solid #5a4a1a;
+  color: #f0d890;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 10px;
+}
+.diag-sync { margin-top: 4px; color: #ffcc44; cursor: pointer; text-decoration: underline; }
 
 /* ── Círculo ── */
 .main-content { display: flex; flex-direction: column; }
